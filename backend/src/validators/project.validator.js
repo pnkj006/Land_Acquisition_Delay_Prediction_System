@@ -1,92 +1,96 @@
 /**
- * @fileoverview Joi validation schemas for the Projects module.
+ * @fileoverview express-validator chains for the Projects module.
+ * Used as: router.post('/', ...projectCreateValidators, validate, controller.createProject)
  */
-const Joi = require('joi');
+const { body, query } = require('express-validator');
 
 const PROJECT_TYPES = ['HIGHWAY', 'RAILWAY', 'IRRIGATION', 'POWER', 'INDUSTRIAL', 'OTHER'];
 const RISK_LEVELS = ['HIGH', 'MEDIUM', 'LOW'];
 const RESPONSIVENESS_LEVELS = ['HIGH', 'MEDIUM', 'LOW'];
 const DELAY_STATUSES = ['DELAYED', 'ON_TIME'];
+const SORT_FIELDS = ['riskScore', 'created_at', 'updated_at', 'delay_days', 'project_id'];
 
 // ─────────────────────────────
 // CREATE
 // ─────────────────────────────
-exports.projectCreateSchema = Joi.object({
-  project_id: Joi.string().trim().min(1).max(100).required(),
-  project_type: Joi.string().valid(...PROJECT_TYPES),
-  land_area_hectares: Joi.number().positive(),
-  number_of_affected_families: Joi.number().integer().min(0),
-  compensation_status: Joi.string().max(100),
-  approval_timeline_days: Joi.number().integer().min(0),
-  legal_disputes_count: Joi.number().integer().min(0).default(0),
-  possession_status: Joi.string().max(100),
-  rehabilitation_progress_pct: Joi.number().min(0).max(100),
-  stakeholder_responsiveness: Joi.string().valid(...RESPONSIVENESS_LEVELS),
-  historical_performance_score: Joi.number().min(0).max(1),
-  administrator_id: Joi.number().integer(),
-  project_manager_id: Joi.number().integer(),
-  manager: Joi.string().max(150),
-  location: Joi.string().max(255),
-  state: Joi.string().max(100),
-  district: Joi.string().max(100),
-  altitude_m: Joi.number(),
-  latitude: Joi.number().min(-90).max(90),
-  longitude: Joi.number().min(-180).max(180),
-  delay_status: Joi.string().valid(...DELAY_STATUSES),
-  delay_days: Joi.number().integer().min(0),
-  risk_score: Joi.number().min(0).max(1),
-});
+exports.projectCreateValidators = [
+  body('project_id').trim().notEmpty().withMessage('project_id is required').isLength({ max: 100 }),
+  body('project_type').optional().isIn(PROJECT_TYPES).withMessage('Invalid project_type'),
+  body('land_area_hectares').optional().isFloat({ min: 0 }),
+  body('number_of_affected_families').optional().isInt({ min: 0 }),
+  body('compensation_status').optional().isString().isLength({ max: 100 }),
+  body('approval_timeline_days').optional().isInt({ min: 0 }),
+  body('legal_disputes_count').optional().isInt({ min: 0 }),
+  body('possession_status').optional().isString().isLength({ max: 100 }),
+  body('rehabilitation_progress_pct').optional().isFloat({ min: 0, max: 100 }),
+  body('stakeholder_responsiveness').optional().isIn(RESPONSIVENESS_LEVELS),
+  body('historical_performance_score').optional().isFloat({ min: 0, max: 1 }),
+  body('administrator_id').optional().isInt(),
+  body('project_manager_id').optional().isInt(),
+  body('manager').optional().isString().isLength({ max: 150 }),
+  body('location').optional().isString().isLength({ max: 255 }),
+  body('state').optional().isString().isLength({ max: 100 }),
+  body('district').optional().isString().isLength({ max: 100 }),
+  body('altitude_m').optional().isFloat(),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  body('delay_status').optional().isIn(DELAY_STATUSES),
+  body('delay_days').optional().isInt({ min: 0 }),
+  body('risk_score').optional().isFloat({ min: 0, max: 1 }),
+];
 
 // ─────────────────────────────
-// UPDATE (all optional, at least one required)
+// UPDATE
 // ─────────────────────────────
-exports.projectUpdateSchema = Joi.object({
-  project_type: Joi.string().valid(...PROJECT_TYPES),
-  land_area_hectares: Joi.number().positive(),
-  number_of_affected_families: Joi.number().integer().min(0),
-  compensation_status: Joi.string().max(100),
-  approval_timeline_days: Joi.number().integer().min(0),
-  legal_disputes_count: Joi.number().integer().min(0),
-  possession_status: Joi.string().max(100),
-  rehabilitation_progress_pct: Joi.number().min(0).max(100),
-  stakeholder_responsiveness: Joi.string().valid(...RESPONSIVENESS_LEVELS),
-  historical_performance_score: Joi.number().min(0).max(1),
-  administrator_id: Joi.number().integer(),
-  manager: Joi.string().max(150),
-  location: Joi.string().max(255),
-  state: Joi.string().max(100),
-  district: Joi.string().max(100),
-  altitude_m: Joi.number(),
-  latitude: Joi.number().min(-90).max(90),
-  longitude: Joi.number().min(-180).max(180),
-  delay_status: Joi.string().valid(...DELAY_STATUSES),
-  delay_days: Joi.number().integer().min(0),
-  risk_score: Joi.number().min(0).max(1),
-})
-  .min(1)
-  .messages({ 'object.min': 'At least one field is required to update' });
+exports.projectUpdateValidators = [
+  body('project_type').optional().isIn(PROJECT_TYPES),
+  body('land_area_hectares').optional().isFloat({ min: 0 }),
+  body('number_of_affected_families').optional().isInt({ min: 0 }),
+  body('compensation_status').optional().isString().isLength({ max: 100 }),
+  body('approval_timeline_days').optional().isInt({ min: 0 }),
+  body('legal_disputes_count').optional().isInt({ min: 0 }),
+  body('possession_status').optional().isString().isLength({ max: 100 }),
+  body('rehabilitation_progress_pct').optional().isFloat({ min: 0, max: 100 }),
+  body('stakeholder_responsiveness').optional().isIn(RESPONSIVENESS_LEVELS),
+  body('historical_performance_score').optional().isFloat({ min: 0, max: 1 }),
+  body('administrator_id').optional().isInt(),
+  body('manager').optional().isString().isLength({ max: 150 }),
+  body('location').optional().isString().isLength({ max: 255 }),
+  body('state').optional().isString().isLength({ max: 100 }),
+  body('district').optional().isString().isLength({ max: 100 }),
+  body('altitude_m').optional().isFloat(),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  body('delay_status').optional().isIn(DELAY_STATUSES),
+  body('delay_days').optional().isInt({ min: 0 }),
+  body('risk_score').optional().isFloat({ min: 0, max: 1 }),
+  body().custom((value, { req }) => {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      throw new Error('At least one field is required to update');
+    }
+    return true;
+  }),
+];
 
 // ─────────────────────────────
 // ASSIGN MANAGER
 // ─────────────────────────────
-exports.assignManagerSchema = Joi.object({
-  project_manager_id: Joi.number().integer().required(),
-});
+exports.assignManagerValidators = [
+  body('project_manager_id').isInt().withMessage('project_manager_id is required and must be an integer'),
+];
 
 // ─────────────────────────────
 // LIST QUERY PARAMS
 // ─────────────────────────────
-exports.projectListQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1),
-  limit: Joi.number().integer().min(1).max(100),
-  search: Joi.string().max(255).allow(''),
-  state: Joi.string().max(100),
-  district: Joi.string().max(100),
-  projectType: Joi.string().valid(...PROJECT_TYPES),
-  riskLevel: Joi.string().valid(...RISK_LEVELS),
-  managerId: Joi.string(), // accepted as string from query, parsed in service
-  sortBy: Joi.string().valid(
-    'riskScore', 'created_at', 'updated_at', 'delay_days', 'project_id'
-  ),
-  sortOrder: Joi.string().valid('asc', 'desc'),
-});
+exports.projectListQueryValidators = [
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('search').optional().isString().isLength({ max: 255 }),
+  query('state').optional().isString().isLength({ max: 100 }),
+  query('district').optional().isString().isLength({ max: 100 }),
+  query('projectType').optional().isIn(PROJECT_TYPES),
+  query('riskLevel').optional().isIn(RISK_LEVELS),
+  query('managerId').optional().isString(),
+  query('sortBy').optional().isIn(SORT_FIELDS),
+  query('sortOrder').optional().isIn(['asc', 'desc']),
+];

@@ -5,31 +5,28 @@ const express = require('express');
 const router = express.Router();
 
 const controller = require('../controllers/project.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const roleMiddleware = require('../middlewares/role.middleware');
-const validate = require('../middlewares/validation.middleware');
+const { authenticate } = require('../middlewares/auth.middleware');
+const { requireRole } = require('../middlewares/role.middleware');
+const { validate } = require('../middlewares/validation.middleware');
 const {
-  projectCreateSchema,
-  projectUpdateSchema,
-  assignManagerSchema,
-  projectListQuerySchema,
+  projectCreateValidators,
+  projectUpdateValidators,
+  assignManagerValidators,
+  projectListQueryValidators,
 } = require('../validators/project.validator');
 
 // All project routes require authentication
-router.use(authMiddleware);
+router.use(authenticate);
 
 // GET /projects — both roles (PM scoped to own projects in the service)
-router.get(
-  '/',
-  validate(projectListQuerySchema, { source: 'query' }),
-  controller.listProjects
-);
+router.get('/', projectListQueryValidators, validate, controller.listProjects);
 
 // POST /projects — ADMIN only
 router.post(
   '/',
-  roleMiddleware('ADMIN'),
-  validate(projectCreateSchema),
+  requireRole('ADMIN'),
+  projectCreateValidators,
+  validate,
   controller.createProject
 );
 
@@ -39,19 +36,21 @@ router.get('/:projectId', controller.getProject);
 // PATCH /projects/:projectId — ADMIN only
 router.patch(
   '/:projectId',
-  roleMiddleware('ADMIN'),
-  validate(projectUpdateSchema),
+  requireRole('ADMIN'),
+  projectUpdateValidators,
+  validate,
   controller.updateProject
 );
 
 // DELETE /projects/:projectId — ADMIN only
-router.delete('/:projectId', roleMiddleware('ADMIN'), controller.deleteProject);
+router.delete('/:projectId', requireRole('ADMIN'), controller.deleteProject);
 
 // PATCH /projects/:projectId/assign-manager — ADMIN only
 router.patch(
   '/:projectId/assign-manager',
-  roleMiddleware('ADMIN'),
-  validate(assignManagerSchema),
+  requireRole('ADMIN'),
+  assignManagerValidators,
+  validate,
   controller.assignManager
 );
 

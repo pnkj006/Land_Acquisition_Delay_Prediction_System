@@ -1,11 +1,11 @@
 /**
  * @fileoverview Verifies the JWT bearer token and attaches
- * { id, role } to req.user. All protected routes use this first.
+ * { id, role } to req.user.
  */
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
 
-module.exports = (req, res, next) => {
+exports.authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

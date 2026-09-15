@@ -1,25 +1,19 @@
 /**
- * @fileoverview Generic Joi validation wrapper.
- * Usage: router.post('/', validate(projectCreateSchema), controller.create)
- * By default validates req.body; pass { source: 'query' } for query params.
+ * @fileoverview Runs after express-validator field validators
+ * (e.g. body('email').isEmail()) to check accumulated errors.
+ * Usage: router.post('/login', someFieldValidators, validate, controller.login)
  */
-module.exports = (schema, options = {}) => {
-  const source = options.source || 'body';
+const { validationResult } = require('express-validator');
 
-  return (req, res, next) => {
-    const { error, value } = schema.validate(req[source], {
-      abortEarly: false,
-      stripUnknown: true,
-    });
+exports.validate = (req, res, next) => {
+  const errors = validationResult(req);
 
-    if (error) {
-      const err = new Error(error.details.map((d) => d.message).join(', '));
-      err.statusCode = 400;
-      err.code = 'VALIDATION_ERROR';
-      return next(err);
-    }
+  if (!errors.isEmpty()) {
+    const err = new Error(errors.array().map((e) => e.msg).join(', '));
+    err.statusCode = 400;
+    err.code = 'VALIDATION_ERROR';
+    return next(err);
+  }
 
-    req[source] = value;
-    next();
-  };
+  next();
 };
