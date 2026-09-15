@@ -23,8 +23,8 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // --- Routes (mount as each module is ready) ---
-// app.use('/api/v1/auth', require('./routes/auth.routes'));
-// app.use('/api/v1/projects', require('./routes/project.routes'));
+app.use('/api/v1/auth', require('./routes/auth.routes'));
+app.use('/api/v1/projects', require('./routes/project.routes'));
 // app.use('/api/v1', require('./routes/status.routes'));
 // app.use('/api/v1', require('./routes/risk.routes'));
 // app.use('/api/v1/dashboard', require('./routes/dashboard.routes'));
