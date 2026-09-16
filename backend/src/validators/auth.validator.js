@@ -8,4 +8,10 @@ const loginValidator = [
   body('password').notEmpty().withMessage('Password is required')
 ];
 
-module.exports = { loginValidator };
+const signupValidator = [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('name').optional().isString().trim().notEmpty().withMessage('Name must be a valid string')
+];
+
+module.exports = { loginValidator, signupValidator };

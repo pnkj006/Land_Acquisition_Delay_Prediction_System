@@ -31,4 +31,16 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { login, logout, me };
+async function signup(req, res, next) {
+  try {
+    const data = req.body;
+    // Default role to USER if not provided (or handle based on your system's defaults)
+    const result = await authService.signup(data);
+    return sendSuccess(res, result, 'Signup successful', 201);
+  } catch (err) {
+    if (err.statusCode) return sendError(res, err.message, 'SIGNUP_ERROR', err.statusCode);
+    next(err);
+  }
+}
+
+module.exports = { login, logout, me, signup };

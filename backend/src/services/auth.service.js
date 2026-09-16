@@ -6,7 +6,7 @@ const logger = require('../config/logger');
 const { signToken } = require('../utils/jwt');
 const { comparePassword } = require('../utils/password');
 const { USER_SELECT_SAFE } = require('../models/User');
-
+const userService = require('./user.service');
 /**
  * login(email, password)
  * - Find user by email (include password_hash)
@@ -79,4 +79,22 @@ async function getMe(userId) {
   }
 }
 
-module.exports = { login, getMe };
+/**
+ * signup(data)
+ * - Create a user using user service
+ * - Sign JWT
+ * - Return { token, user }
+ */
+async function signup(data) {
+  try {
+    const user = await userService.createUser(data);
+    const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
+    logger.info(`User signed up and logged in: ${user.id}`);
+    return { token, user };
+  } catch (error) {
+    logger.error(`Signup error for email ${data?.email}: ${error.message}`);
+    throw error;
+  }
+}
+
+module.exports = { login, getMe, signup };
