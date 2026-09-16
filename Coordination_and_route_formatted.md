@@ -29,8 +29,6 @@
 
 ---
 
----
-
 ## 1. Project Objective
 Land acquisition for infrastructure projects can be delayed because of:
 
@@ -75,24 +73,28 @@ New Prediction
 
 ---
 
+## 2. Data Source and Data Flow
 
 The prototype uses an approved/prepared CSV import mechanism for project data.
 
-**Data Flow**
+### Data Flow
+
+```text
 Prepared / Approved CSV
-        ↓
-Admin Upload
-        ↓
-Backend Validation
-        ↓
-PostgreSQL
-        ↓
-Project Manager Updates Current Status
-        ↓
-ML Prediction
+          ↓
+     Admin Upload
+          ↓
+   Backend Validation
+          ↓
+      PostgreSQL
+          ↓
+Project Manager Updates
+   Current Project Status
+          ↓
+     ML Prediction
 
+```
 The system must not claim that it has live government API integration.
-
 
 ---
 
@@ -620,84 +622,25 @@ http://localhost:5000`/api/v1`
 
 
 ## 8. Frontend ↔ Backend Mapping
-FRONTEND PAGE
-                        BACKEND API
-==============================================================
 
-/login
-    ↓
-`POST `/api/v1`/auth/login`
-/pm/dashboard
-    ↓
-`GET `/api/v1`/dashboard/project-manager`
-/pm/projects
-    ↓
-`GET `/api/v1`/projects`
-/pm/projects/:projectId
-    ↓
-`GET `/api/v1`/projects/:projectId`
-`GET `/api/v1`/projects/:projectId/status`
-`GET `/api/v1`/projects/:projectId/risk`
-`GET `/api/v1`/projects/:projectId/risk/history`
-`GET `/api/v1`/projects/:projectId/risk/stages`
-`GET `/api/v1`/projects/:projectId/risk/factors`
-`GET `/api/v1`/projects/:projectId/recommendations`
-/pm/risk-map
-    ↓
-`GET `/api/v1`/projects/map`
-/pm/alerts
-    ↓
-`GET `/api/v1`/alerts`
-`PATCH `/api/v1`/alerts/:alertId/read`
-`PATCH `/api/v1`/alerts/read-all`
-/pm/analytics
-    ↓
-`GET `/api/v1`/analytics/risk-distribution`
-`GET `/api/v1`/analytics/progress`
-`GET `/api/v1`/analytics/risk-trend`
-/admin/dashboard
-    ↓
-`GET `/api/v1`/dashboard/admin`
-/admin/projects
-    ↓
-`GET `/api/v1`/projects`
-/admin/projects/:projectId
-    ↓
-`GET `/api/v1`/projects/:projectId`
-`GET `/api/v1`/projects/:projectId/risk`
-`GET `/api/v1`/projects/:projectId/risk/history`
-`GET `/api/v1`/projects/:projectId/risk/stages`
-`GET `/api/v1`/projects/:projectId/risk/factors`
-`GET `/api/v1`/projects/:projectId/recommendations`
-/admin/risk-map
-    ↓
-`GET `/api/v1`/projects/map`
-/admin/alerts
-    ↓
-`GET `/api/v1`/alerts`
-/admin/analytics
-    ↓
-`GET `/api/v1`/analytics/risk-distribution`
-`GET `/api/v1`/analytics/state-risk`
-`GET `/api/v1`/analytics/district-risk`
-`GET `/api/v1`/analytics/progress`
-`GET `/api/v1`/analytics/risk-trend`
-/admin/import
-    ↓
-`POST `/api/v1`/imports/projects`
-`GET `/api/v1`/imports`
-/admin/users
-    ↓
-`GET `/api/v1`/users`
-`POST `/api/v1`/users`
-`PATCH `/api/v1`/users/:userId`
-`DELETE `/api/v1`/users/:userId`
-/admin/audit-logs
-    ↓
-`GET `/api/v1`/audit-logs`
-
----
-
+| Frontend Page | Backend API |
+|---|---|
+| `/login` | `POST /api/v1/auth/login` |
+| `/pm/dashboard` | `GET /api/v1/dashboard/project-manager` |
+| `/pm/projects` | `GET /api/v1/projects` |
+| `/pm/projects/:projectId` | `GET /api/v1/projects/:projectId`<br>`GET /api/v1/projects/:projectId/status`<br>`GET /api/v1/projects/:projectId/risk`<br>`GET /api/v1/projects/:projectId/risk/history`<br>`GET /api/v1/projects/:projectId/risk/stages`<br>`GET /api/v1/projects/:projectId/risk/factors`<br>`GET /api/v1/projects/:projectId/recommendations` |
+| `/pm/risk-map` | `GET /api/v1/projects/map` |
+| `/pm/alerts` | `GET /api/v1/alerts`<br>`PATCH /api/v1/alerts/:alertId/read`<br>`PATCH /api/v1/alerts/read-all` |
+| `/pm/analytics` | `GET /api/v1/analytics/risk-distribution`<br>`GET /api/v1/analytics/progress`<br>`GET /api/v1/analytics/risk-trend` |
+| `/admin/dashboard` | `GET /api/v1/dashboard/admin` |
+| `/admin/projects` | `GET /api/v1/projects` |
+| `/admin/projects/:projectId` | `GET /api/v1/projects/:projectId`<br>`GET /api/v1/projects/:projectId/risk`<br>`GET /api/v1/projects/:projectId/risk/history`<br>`GET /api/v1/projects/:projectId/risk/stages`<br>`GET /api/v1/projects/:projectId/risk/factors`<br>`GET /api/v1/projects/:projectId/recommendations` |
+| `/admin/risk-map` | `GET /api/v1/projects/map` |
+| `/admin/alerts` | `GET /api/v1/alerts` |
+| `/admin/analytics` | `GET /api/v1/analytics/risk-distribution`<br>`GET /api/v1/analytics/state-risk`<br>`GET /api/v1/analytics/district-risk`<br>`GET /api/v1/analytics/progress`<br>`GET /api/v1/analytics/risk-trend` |
+| `/admin/import` | `POST /api/v1/imports/projects`<br>`GET /api/v1/imports` |
+| `/admin/users` | `GET /api/v1/users`<br>`POST /api/v1/users`<br>`PATCH /api/v1/users/:userId`<br>`DELETE /api/v1/users/:userId` |
+| `/admin/audit-logs` | `GET /api/v1/audit-logs` |
 
 ## 9. API Response Contract
 All successful API responses should follow this structure:
