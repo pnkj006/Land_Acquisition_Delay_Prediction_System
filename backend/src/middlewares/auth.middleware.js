@@ -17,14 +17,24 @@ exports.authenticate = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = { id: decoded.id, role: decoded.role };
-    next();
-  } catch (error) {
-    const err = new Error('Invalid or expired token');
-    err.statusCode = 401;
-    err.code = 'UNAUTHORIZED';
-    next(err);
-  }
-};
+try {
+  const decoded = jwt.verify(token, JWT_SECRET);
+
+  console.log('Decoded token:', decoded);
+
+  req.user = {
+    id: decoded.id,
+    role: decoded.role
+  };
+
+  next();
+} catch (error) {
+  console.log('JWT ERROR NAME:', error.name);
+  console.log('JWT ERROR MESSAGE:', error.message);
+
+  const err = new Error('Invalid or expired token');
+  err.statusCode = 401;
+  err.code = 'UNAUTHORIZED';
+  next(err);
+}
+}

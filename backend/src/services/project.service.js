@@ -10,13 +10,7 @@ const auditService = require('./audit.service');
  * Resolves a :projectId route param to a Prisma `where` clause.
  * Accepts either the numeric primary key `id` or the business `project_id` string.
  */
-function resolveProjectWhere(projectIdParam) {
-  const asNumber = Number(projectIdParam);
-  if (Number.isInteger(asNumber) && String(asNumber) === String(projectIdParam)) {
-    return { id: asNumber };
-  }
-  return { project_id: projectIdParam };
-}
+const { resolveProjectWhere } = require('../utils/resolveProject');
 
 /**
  * Builds the Prisma `where` clause for a project list query,

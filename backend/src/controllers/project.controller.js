@@ -3,8 +3,9 @@
  * Thin layer: extracts request data, calls the service, formats the response.
  * All business logic and error-throwing lives in project.service.js.
  */
+
 const projectService = require('../services/project.service');
-const { success, paginated } = require('../utils/response');
+const { sendSuccess, sendPaginated } = require('../utils/response');
 const { getPagination } = require('../utils/pagination');
 
 /**
@@ -13,6 +14,7 @@ const { getPagination } = require('../utils/pagination');
 exports.listProjects = async (req, res, next) => {
   try {
     const { page, limit, skip } = getPagination(req.query);
+
     const filters = {
       search: req.query.search,
       state: req.query.state,
@@ -25,10 +27,21 @@ exports.listProjects = async (req, res, next) => {
     };
 
     const { items, total } = await projectService.listProjects(
-      req.user, filters, page, limit, skip
+      req.user,
+      filters,
+      page,
+      limit,
+      skip
     );
 
-    return paginated(res, 'Projects retrieved successfully', items, page, limit, total);
+    return sendPaginated(
+      res,
+      items,
+      page,
+      limit,
+      total,
+      'Projects retrieved successfully'
+    );
   } catch (err) {
     next(err);
   }
@@ -39,8 +52,16 @@ exports.listProjects = async (req, res, next) => {
  */
 exports.getProject = async (req, res, next) => {
   try {
-    const project = await projectService.getProjectById(req.params.projectId, req.user);
-    return success(res, 'Project retrieved successfully', project);
+    const project = await projectService.getProjectById(
+      req.params.projectId,
+      req.user
+    );
+
+    return sendSuccess(
+      res,
+      project,
+      'Project retrieved successfully'
+    );
   } catch (err) {
     next(err);
   }
@@ -51,8 +72,17 @@ exports.getProject = async (req, res, next) => {
  */
 exports.createProject = async (req, res, next) => {
   try {
-    const project = await projectService.createProject(req.body, req.user.id);
-    return success(res, 'Project created successfully', project, 201);
+    const project = await projectService.createProject(
+      req.body,
+      req.user.id
+    );
+
+    return sendSuccess(
+      res,
+      project,
+      'Project created successfully',
+      201
+    );
   } catch (err) {
     next(err);
   }
@@ -64,9 +94,16 @@ exports.createProject = async (req, res, next) => {
 exports.updateProject = async (req, res, next) => {
   try {
     const project = await projectService.updateProject(
-      req.params.projectId, req.body, req.user.id
+      req.params.projectId,
+      req.body,
+      req.user.id
     );
-    return success(res, 'Project updated successfully', project);
+
+    return sendSuccess(
+      res,
+      project,
+      'Project updated successfully'
+    );
   } catch (err) {
     next(err);
   }
@@ -77,8 +114,16 @@ exports.updateProject = async (req, res, next) => {
  */
 exports.deleteProject = async (req, res, next) => {
   try {
-    const result = await projectService.deleteProject(req.params.projectId, req.user.id);
-    return success(res, 'Project deleted successfully', result);
+    const result = await projectService.deleteProject(
+      req.params.projectId,
+      req.user.id
+    );
+
+    return sendSuccess(
+      res,
+      result,
+      'Project deleted successfully'
+    );
   } catch (err) {
     next(err);
   }
@@ -94,7 +139,12 @@ exports.assignManager = async (req, res, next) => {
       req.body.project_manager_id,
       req.user.id
     );
-    return success(res, 'Manager assigned successfully', project);
+
+    return sendSuccess(
+      res,
+      project,
+      'Manager assigned successfully'
+    );
   } catch (err) {
     next(err);
   }
