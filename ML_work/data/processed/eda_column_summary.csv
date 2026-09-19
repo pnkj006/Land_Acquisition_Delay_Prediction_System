@@ -1,0 +1,21 @@
+Column,Data Type,Missing Values,Missing %,Unique Values
+project_id,str,0,0.0,200000
+project_type,str,0,0.0,9
+land_area_hectares,float64,0,0.0,24893
+number_of_affected_families,int64,0,0.0,875
+compensation_status,str,0,0.0,5
+approval_timeline_days,int64,0,0.0,713
+legal_disputes_count,int64,0,0.0,20
+possession_status,str,0,0.0,4
+rehabilitation_progress_pct,float64,0,0.0,1001
+stakeholder_responsiveness,str,0,0.0,3
+historical_performance_score,float64,0,0.0,881
+administrator_id,str,0,0.0,1200
+manager,str,0,0.0,15000
+location,str,0,0.0,133
+altitude_m,float64,0,0.0,19927
+latitude,float64,0,0.0,36
+longitude,float64,0,0.0,198728
+delay_status,str,0,0.0,2
+delay_days,int64,0,0.0,820
+risk_score,float64,0,0.0,854

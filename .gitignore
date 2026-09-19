@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.DS_Store
+
+.vite/
+dev-server.log
+dev-server.err.log
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env
