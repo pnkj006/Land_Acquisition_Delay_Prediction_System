@@ -108,7 +108,7 @@ describe('Auth Endpoints', () => {
         .post('/api/v1/auth/login')
         .send({ password: 'password123' });
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
   });

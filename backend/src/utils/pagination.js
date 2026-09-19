@@ -1,20 +1,14 @@
 /**
  * @fileoverview Shared pagination helpers.
- * Every list endpoint
- * so the envelope shape stays identical everywhere.
  */
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 
-/**
- * Reads page/limit from req.query, clamps to valid ranges,
- * and computes the Prisma `skip` value.
- */
 exports.getPagination = (query = {}) => {
-  let page = Number.parseInt(query.page, 10);
-  let limit = Number.parseInt(query.limit, 10);
+  let page = parseInt(query.page, 10);
+  let limit = parseInt(query.limit, 10);
 
   if (!Number.isInteger(page) || page < 1) page = DEFAULT_PAGE;
   if (!Number.isInteger(limit) || limit < 1) limit = DEFAULT_LIMIT;
@@ -25,10 +19,19 @@ exports.getPagination = (query = {}) => {
   return { page, limit, skip };
 };
 
-/**
- * Builds the pagination metadata block for the response envelope.
- */
 exports.buildPaginationMeta = (page, limit, total) => ({
+  page: Number(page),
+  limit: Number(limit),
+  total,
+  totalPages: Math.ceil(total / limit) || 0,
+});
+
+/**
+ * paginationMeta(total, page, limit) — alias matching import.controller.js's
+ * call signature (total first, then page/limit), kept alongside
+ * buildPaginationMeta for backward compatibility with existing callers.
+ */
+exports.paginationMeta = (total, page, limit) => ({
   page: Number(page),
   limit: Number(limit),
   total,
