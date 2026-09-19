@@ -21,6 +21,22 @@ export const PROJECT_TYPES = {
   URBAN: 'Urban Development',
 }
 
+// Field Update types for the Field Updates page (form + feed). Defined here
+// with the other shared lists; the backend does not provide a list yet, so
+// this is presentation metadata — not fabricated data.
+export const FIELD_UPDATE_TYPES = [
+  'Progress Update',
+  'Compensation Status',
+  'Land Acquisition Status',
+  'Legal Issue',
+  'Approval Status',
+  'Rehabilitation Update',
+  'Possession Update',
+  'Documentation Issue',
+  'Field Observation',
+  'Other',
+]
+
 export const PRIORITY_LEVELS = {
   HIGH: 'High',
   MEDIUM: 'Medium',

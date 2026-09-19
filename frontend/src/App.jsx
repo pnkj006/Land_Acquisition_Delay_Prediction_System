@@ -4,6 +4,7 @@ import MyProjects from './pages/project-manager/MyProjects.jsx'
 import ProjectDetails from './pages/project-manager/ProjectDetails.jsx'
 import RiskAnalysis from './pages/project-manager/RiskAnalysis.jsx'
 import Alerts from './pages/project-manager/Alerts.jsx'
+import FieldUpdates from './pages/project-manager/FieldUpdates.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import LoginForm from './components/auth/LoginForm.jsx'
 import { SidebarProvider } from './context/SidebarContext.jsx'
@@ -56,6 +57,17 @@ function App() {
         element={
           <ProtectedRoute>
             <Alerts />
+          </ProtectedRoute>
+        }
+      />
+      {/* Field Updates — the route the existing sidebar nav item already
+          points to (see NAV_ITEMS in utils/constants.js). No existing routes
+          changed. */}
+      <Route
+        path="/project-manager/field-updates"
+        element={
+          <ProtectedRoute>
+            <FieldUpdates />
           </ProtectedRoute>
         }
       />
