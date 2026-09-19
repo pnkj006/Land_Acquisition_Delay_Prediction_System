@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getAlerts } from '../api/alerts.api'
 
 export function useAlerts({ projectId } = {}) {
@@ -7,7 +7,9 @@ export function useAlerts({ projectId } = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
+  // Fetch logic kept in a callback so consumers get a refetch() for the
+  // Retry action (backward compatible — return object only gained a key).
+  const fetchAlerts = useCallback(() => {
     let isMounted = true
     setLoading(true)
     getAlerts({ projectId })
@@ -28,5 +30,10 @@ export function useAlerts({ projectId } = {}) {
     }
   }, [projectId])
 
-  return { alerts, unreadCount, loading, error }
+  useEffect(() => {
+    const cleanup = fetchAlerts()
+    return cleanup
+  }, [fetchAlerts])
+
+  return { alerts, unreadCount, loading, error, refetch: fetchAlerts }
 }

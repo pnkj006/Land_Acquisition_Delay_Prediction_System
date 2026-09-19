@@ -4,7 +4,15 @@ import Loader from '../common/Loader.jsx'
 import ErrorState from '../common/ErrorState.jsx'
 import { BellOff } from 'lucide-react'
 
-export default function AlertList({ alerts, loading = false, error = null, maxItems, className = '' }) {
+export default function AlertList({
+  alerts,
+  loading = false,
+  error = null,
+  maxItems,
+  className = '',
+  onAlertClick,
+  selectedId = null,
+}) {
   if (loading) return <Loader label="Loading alerts…" className="py-6" />
   if (error) return <ErrorState message="Failed to load alerts." className="py-6" />
   if (!alerts || alerts.length === 0) {
@@ -16,7 +24,12 @@ export default function AlertList({ alerts, loading = false, error = null, maxIt
   return (
     <div className={`flex flex-col divide-y divide-gray-50 ${className}`}>
       {visible.map((alert) => (
-        <AlertCard key={alert.id} alert={alert} />
+        <AlertCard
+          key={alert.id}
+          alert={alert}
+          onClick={onAlertClick ? (next) => onAlertClick(next) : undefined}
+          selected={selectedId ? alert.id === selectedId : false}
+        />
       ))}
     </div>
   )
