@@ -8,3 +8,8 @@ dist-ssr
 .vite/
 dev-server.log
 dev-server.err.log
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env
