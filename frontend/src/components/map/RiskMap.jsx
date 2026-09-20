@@ -14,7 +14,7 @@ import { DISTRICT_NAME, RISK_LEVELS } from '../../utils/constants'
 // single district today); the "All Districts" option resets the filter.
 const DISTRICT_OPTIONS = [DISTRICT_NAME]
 
-export default function RiskMap({ onViewDetails, className = '' }) {
+export default function RiskMap({ onViewDetails, className = '', popupActionLabel = 'View Details' }) {
   const [markers, setMarkers] = useState([])
   const [center, setCenter] = useState(CUTTACK_CENTER)
   const [loading, setLoading] = useState(true)
@@ -121,7 +121,7 @@ export default function RiskMap({ onViewDetails, className = '' }) {
               icon={createRiskMarkerIcon(marker)}
             >
               <LeafletPopup>
-                <MapPopup marker={marker} onViewDetails={() => onViewDetails && onViewDetails(marker)} />
+                <MapPopup marker={marker} onViewDetails={() => onViewDetails && onViewDetails(marker)} actionLabel={popupActionLabel} />
               </LeafletPopup>
             </LeafletMarker>
           ))}
