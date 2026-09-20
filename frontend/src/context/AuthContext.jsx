@@ -1,38 +1,64 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 
 const AuthContext = createContext(null)
 
-// Mock authenticated user — a real implementation would hydrate this from a
-// login endpoint / stored token.
-const MOCK_USER = {
-  id: 'U-001',
-  name: 'Rakesh Patnaik',
-  role: 'Project Manager',
-  district: 'Cuttack District',
-  state: 'Odisha',
-  email: 'rakesh.patnaik@lrd.odisha.gov.in',
-}
+import apiClient from '../api/apiClient'
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(MOCK_USER)
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true) // Start loading while checking /me
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const res = await apiClient.get('/auth/me');
+          setUser(res.data.data);
+        }
+      } catch (err) {
+        setUser(null);
+        localStorage.removeItem('token');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMe();
+  }, []);
 
   const login = useCallback(async (credentials) => {
     setLoading(true)
-    // Simulated auth — replace with a real auth API call later.
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    setUser(MOCK_USER)
-    setLoading(false)
-    return MOCK_USER
+    try {
+      const res = await apiClient.post('/auth/login', credentials);
+      const { user: userData, token } = res.data.data;
+      localStorage.setItem('token', token);
+      setUser(userData);
+      return userData;
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const logout = useCallback(() => {
-    setUser(null)
+  const logout = useCallback(async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (e) {
+      // Ignore network errors on logout
+    }
+    localStorage.removeItem('token');
+    setUser(null);
+    window.location.href = '/login';
   }, [])
+
+  const hasPermission = useCallback((resource, action) => {
+    if (!user || !user.permissions) return false;
+    // Backend V7 sends permissions as an array of strings in user.permissions
+    return user.permissions.includes(`${resource}:${action}`);
+  }, [user]);
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, isAuthenticated: Boolean(user) }),
-    [user, loading, login, logout],
+    () => ({ user, loading, login, logout, isAuthenticated: Boolean(user), hasPermission }),
+    [user, loading, login, logout, hasPermission],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

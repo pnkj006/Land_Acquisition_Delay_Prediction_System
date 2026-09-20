@@ -7,7 +7,9 @@ import Alerts from './pages/project-manager/Alerts.jsx'
 import FieldUpdates from './pages/project-manager/FieldUpdates.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import LoginForm from './components/auth/LoginForm.jsx'
+import NotFound from './pages/NotFound.jsx'
 import { SidebarProvider } from './context/SidebarContext.jsx'
+import UserDetailPage from './pages/admin/UserDetailPage.jsx'
 
 function App() {
   return (
@@ -26,7 +28,7 @@ function App() {
       <Route
         path="/project-manager/projects"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredPermission={['projects', 'read']}>
             <MyProjects />
           </ProtectedRoute>
         }
@@ -34,14 +36,11 @@ function App() {
       <Route
         path="/project-manager/projects/:projectId"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredPermission={['projects', 'read']}>
             <ProjectDetails />
           </ProtectedRoute>
         }
       />
-      {/* Risk Analysis — the route the existing sidebar nav item already
-          points to (see NAV_ITEMS in utils/constants.js). No existing routes
-          were changed; only this missing page was wired up. */}
       <Route
         path="/project-manager/risk-analysis"
         element={
@@ -50,8 +49,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-      {/* Alerts — the route the existing sidebar nav item already points to
-          (see NAV_ITEMS in utils/constants.js). No existing routes changed. */}
       <Route
         path="/project-manager/alerts"
         element={
@@ -60,9 +57,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-      {/* Field Updates — the route the existing sidebar nav item already
-          points to (see NAV_ITEMS in utils/constants.js). No existing routes
-          changed. */}
       <Route
         path="/project-manager/field-updates"
         element={
@@ -71,7 +65,16 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/project-manager/dashboard" replace />} />
+      {/* Admin routes */}
+      <Route
+        path="/admin/users/:userId"
+        element={
+          <ProtectedRoute requiredPermission={['users', 'read']}>
+            <UserDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
       </Routes>
     </SidebarProvider>
   )
