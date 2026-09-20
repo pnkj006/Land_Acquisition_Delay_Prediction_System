@@ -65,6 +65,10 @@ jest.mock('../src/middlewares/audit.middleware', () => ({
 
 const app = express();
 app.use(express.json());
+app.use((req, res, next) => {
+  if (!req.body) req.body = {};
+  next();
+});
 // Need to set a route mock for noFile test, but upload.middleware mock assigns req.file unconditionally
 // Let's modify app setup slightly for testing:
 app.use((req, res, next) => {
@@ -75,6 +79,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api/v1/imports', require('../src/routes/import.routes'));
+app.use(require('../src/middlewares/error.middleware'));
 
 describe('Import Routes', () => {
   const prisma = require('../src/config/database');
@@ -89,7 +94,7 @@ describe('Import Routes', () => {
       { project_id: 'PRJ2', land_area_hectares: '20' }
     ]);
     prisma.project.upsert.mockResolvedValue({});
-    prisma.importHistory.create.mockResolvedValue({ id: 1 });
+    prisma.importHistory.create.mockResolvedValue({ id: 1, successful_rows: 2 });
 
     const res = await request(app)
       .post('/api/v1/imports/projects')

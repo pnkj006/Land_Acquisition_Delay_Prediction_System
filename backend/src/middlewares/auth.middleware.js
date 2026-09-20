@@ -1,11 +1,17 @@
 /**
- * @fileoverview Verifies the JWT bearer token and attaches
- * { id, role } to req.user.
+ * @fileoverview Verifies the JWT bearer token, loads the full user from the DB
+ * (with permissions), and attaches it to req.user.
+ *
+ * - Only the JWT `id` field is trusted; role and grants always come from the DB.
+ * - Missing user or is_active === false → 401.
+ *
+ * §5.1 of the RBAC V7 plan.
  */
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
+const prisma = require('../config/database');
 
-exports.authenticate = (req, res, next) => {
+exports.authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -17,24 +23,38 @@ exports.authenticate = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
-try {
-  const decoded = jwt.verify(token, JWT_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    const err = new Error('Invalid or expired token');
+    err.statusCode = 401;
+    err.code = 'UNAUTHORIZED';
+    return next(err);
+  }
 
-  console.log('Decoded token:', decoded);
+  try {
+    // Load user fresh from DB — role and grants always from DB, never from JWT
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { permissions: true },
+    });
 
-  req.user = {
-    id: decoded.id,
-    role: decoded.role
-  };
+    if (!user || user.is_active === false) {
+      const err = new Error('Invalid or expired token');
+      err.statusCode = 401;
+      err.code = 'UNAUTHORIZED';
+      return next(err);
+    }
 
-  next();
-} catch (error) {
-  console.log('JWT ERROR NAME:', error.name);
-  console.log('JWT ERROR MESSAGE:', error.message);
-
-  const err = new Error('Invalid or expired token');
-  err.statusCode = 401;
-  err.code = 'UNAUTHORIZED';
-  next(err);
-}
-}
+    // Attach full user (without password_hash in practice; Prisma selects all by default)
+    // Password is not exposed through req.user since we never reference it elsewhere.
+    req.user = user;
+    next();
+  } catch (error) {
+    const err = new Error('Authentication error');
+    err.statusCode = 401;
+    err.code = 'UNAUTHORIZED';
+    next(err);
+  }
+};

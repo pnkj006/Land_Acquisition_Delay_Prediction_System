@@ -21,11 +21,11 @@ jest.mock('../src/middlewares/auth.middleware', () => {
   };
 });
 
-jest.mock('../src/middlewares/role.middleware', () => {
+jest.mock('../src/middlewares/rbac.middleware', () => {
   return {
-    requireRole: (...allowedRoles) => {
+    authorize: (resource, action) => {
       return (req, res, next) => {
-        if (!req.user || !allowedRoles.includes(req.user.role)) {
+        if (!req.user) {
           return res.status(403).json({ success: false, message: 'Forbidden' });
         }
         next();
@@ -45,6 +45,14 @@ jest.mock('../src/config/database', () => ({
 // Mock logger
 jest.mock('../src/config/logger', () => ({ info: jest.fn(), error: jest.fn(), warn: jest.fn() }));
 
+// Mock scope util
+jest.mock('../src/utils/scope', () => ({
+  projectScopeWhere: (user) => {
+    if (user.role === 'ADMIN') return {};
+    return { assignments: { some: { user_id: user.id } } };
+  }
+}));
+
 // Setup app
 const dashboardRoutes = require('../src/routes/dashboard.routes');
 const app = express();
@@ -58,57 +66,18 @@ describe('Dashboard API', () => {
     jest.clearAllMocks();
   });
 
-  describe('GET /api/v1/dashboard/project-manager', () => {
+  describe('GET /api/v1/dashboard', () => {
     it('should return 200 with dashboard data for PM', async () => {
       prisma.project.findMany.mockResolvedValue([
-        { id: 101, project_manager_id: 1, risk_predictions: [{ risk_level: 'HIGH', risk_score: 85 }], alerts: [{ is_read: false }] }
+        { id: 101, project_id: 'PRJ1', risk_predictions: [{ risk_level: 'HIGH', risk_score: 85 }], alerts: [{ is_read: false }] }
       ]);
       prisma.alert.findMany.mockResolvedValue([
         { id: 1, message: 'Alert 1' }
       ]);
 
       const res = await request(app)
-        .get('/api/v1/dashboard/project-manager')
+        .get('/api/v1/dashboard')
         .set('Authorization', 'Bearer valid_pm_token');
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.summary).toBeDefined();
-      expect(res.body.data.riskDistribution).toBeDefined();
-      expect(res.body.data.recentAlerts).toBeDefined();
-      expect(res.body.data.highRiskProjectList).toBeDefined();
-    });
-
-    it('should return 403 for ADMIN trying to access PM dashboard', async () => {
-      const res = await request(app)
-        .get('/api/v1/dashboard/project-manager')
-        .set('Authorization', 'Bearer valid_admin_token');
-
-      expect(res.status).toBe(403);
-    });
-
-    it('should return 401 if no auth provided', async () => {
-      const res = await request(app)
-        .get('/api/v1/dashboard/project-manager');
-
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe('GET /api/v1/dashboard/admin', () => {
-    it('should return 200 with dashboard data for ADMIN', async () => {
-      prisma.project.findMany.mockResolvedValue([
-        { id: 101, risk_predictions: [{ risk_level: 'HIGH', risk_score: 85 }], alerts: [] },
-        { id: 102, risk_predictions: [{ risk_level: 'LOW', risk_score: 20 }], alerts: [] }
-      ]);
-      prisma.user.count.mockResolvedValue(5);
-      prisma.alert.findMany.mockResolvedValue([
-        { id: 1, message: 'Global Alert' }
-      ]);
-
-      const res = await request(app)
-        .get('/api/v1/dashboard/admin')
-        .set('Authorization', 'Bearer valid_admin_token');
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -116,15 +85,34 @@ describe('Dashboard API', () => {
       expect(res.body.data.riskDistribution).toBeDefined();
       expect(res.body.data.recentAlerts).toBeDefined();
       expect(res.body.data.attentionProjects).toBeDefined();
-      expect(res.body.data.summary.totalUsers).toBe(5);
+      expect(res.body.data.summary.totalUsers).toBeUndefined(); // PM doesn't get this
     });
 
-    it('should return 403 for PM trying to access ADMIN dashboard', async () => {
-      const res = await request(app)
-        .get('/api/v1/dashboard/admin')
-        .set('Authorization', 'Bearer valid_pm_token');
+    it('should return 200 with dashboard data for ADMIN', async () => {
+      prisma.project.findMany.mockResolvedValue([
+        { id: 101, project_id: 'PRJ1', risk_predictions: [{ risk_level: 'HIGH', risk_score: 85 }], alerts: [] },
+        { id: 102, project_id: 'PRJ2', risk_predictions: [{ risk_level: 'LOW', risk_score: 20 }], alerts: [] }
+      ]);
+      prisma.user.count.mockResolvedValue(5);
+      prisma.alert.findMany.mockResolvedValue([
+        { id: 1, message: 'Global Alert' }
+      ]);
 
-      expect(res.status).toBe(403);
+      const res = await request(app)
+        .get('/api/v1/dashboard')
+        .set('Authorization', 'Bearer valid_admin_token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.summary).toBeDefined();
+      expect(res.body.data.summary.totalUsers).toBe(5); // Admin gets this
+    });
+
+    it('should return 401 if no auth provided', async () => {
+      const res = await request(app)
+        .get('/api/v1/dashboard');
+
+      expect(res.status).toBe(401);
     });
   });
 });

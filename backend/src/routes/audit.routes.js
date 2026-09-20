@@ -5,11 +5,11 @@ const express = require('express');
 const router = express.Router();
 const auditController = require('../controllers/audit.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize } = require('../middlewares/rbac.middleware');
 
 router.get('/', 
   authenticate, 
-  requireRole('ADMIN'), 
+  authorize('audit_logs', 'read'), 
   auditController.getAuditLogs
 );
 

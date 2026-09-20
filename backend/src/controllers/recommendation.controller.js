@@ -1,8 +1,9 @@
 /**
  * @fileoverview Recommendation Controller
+ * Uses assertProjectInScope for scope enforcement.
  */
 const prisma = require('../config/database');
-const auditService = require('../services/audit.service');
+const { assertProjectInScope, projectScopeWhere } = require('../utils/scope');
 const { sendSuccess, sendError } = require('../utils/response');
 
 exports.getRecommendations = async (req, res, next) => {
@@ -12,20 +13,16 @@ exports.getRecommendations = async (req, res, next) => {
       return sendError(res, 'Invalid project ID', 'INVALID_PARAM', 400);
     }
 
-    if (req.user.role === 'PROJECT_MANAGER') {
-      const project = await prisma.project.findUnique({ where: { id: projectId } });
-      if (!project || project.project_manager_id !== req.user.id) {
-        return sendError(res, 'Forbidden', 'FORBIDDEN', 403);
-      }
-    }
+    // Scope check — produces 404 if not found or out of scope
+    await assertProjectInScope(req.user, projectId);
 
     const recommendations = await prisma.recommendation.findMany({
       where: { project_id: projectId },
-      orderBy: { created_at: 'desc' } // Priority sort handled in JS below (HIGH→MEDIUM→LOW)
+      orderBy: { created_at: 'desc' },
     });
 
-    // Simple JS sort to ensure HIGH -> MEDIUM -> LOW
-    const priorityOrder = { 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 };
+    // Sort by priority
+    const priorityOrder = { HIGH: 1, MEDIUM: 2, LOW: 3 };
     recommendations.sort((a, b) => {
       const pA = priorityOrder[a.priority] || 4;
       const pB = priorityOrder[b.priority] || 4;
@@ -52,25 +49,22 @@ exports.updateRecommendationStatus = async (req, res, next) => {
       return sendError(res, 'Invalid status', 'INVALID_STATUS', 400);
     }
 
+    // Load recommendation with its project
     const recommendation = await prisma.recommendation.findUnique({
       where: { id: recommendationId },
-      include: { project: true }
     });
 
     if (!recommendation) {
       return sendError(res, 'Recommendation not found', 'NOT_FOUND', 404);
     }
 
-    if (req.user.role === 'PROJECT_MANAGER' && recommendation.project.project_manager_id !== req.user.id) {
-      return sendError(res, 'Forbidden', 'FORBIDDEN', 403);
-    }
+    // Scope check through recommendation's project — 404 if out of scope
+    await assertProjectInScope(req.user, recommendation.project_id);
 
     const updatedRecommendation = await prisma.recommendation.update({
       where: { id: recommendationId },
-      data: { status }
+      data: { status },
     });
-
-    await auditService.log(req.user.id, 'UPDATE_RECOMMENDATION', recommendation.project_id, { recommendationId, newStatus: status });
 
     return sendSuccess(res, updatedRecommendation);
   } catch (error) {

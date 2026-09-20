@@ -11,7 +11,7 @@ exports.importProjects = async (req, res, next) => {
       return sendError(res, 'No file uploaded', 'FILE_MISSING', 400);
     }
 
-    const result = await importService.importProjects(req.file, req.user.id);
+    const result = await importService.importProjects(req.file, req.user);
     return sendSuccess(res, result, 'Import completed', 201);
   } catch (error) {
     next(error);
@@ -21,10 +21,10 @@ exports.importProjects = async (req, res, next) => {
 exports.listImports = async (req, res, next) => {
   try {
     const { page, limit, skip } = getPagination(req.query);
-    const result = await importService.listImports(page, limit, skip);
+    const result = await importService.listImports(req.user, page, limit, skip);
     const meta = paginationMeta(result.total, page, limit);
 
-    return sendSuccess(res, { items: result.items, pagination: paginationMeta(result.total, page, limit) });
+    return sendSuccess(res, { items: result.items, meta });
   } catch (error) {
     next(error);
   }

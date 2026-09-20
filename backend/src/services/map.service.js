@@ -1,21 +1,22 @@
 /**
- * @fileoverview Map service for map-related queries
+ * @fileoverview Map service — scoped by user's accessible projects.
  */
 const prisma = require('../config/database');
 const logger = require('../config/logger');
+const { projectScopeWhere } = require('../utils/scope');
 
-const getMapData = async (filters = {}) => {
-  const { riskLevel, state, district } = filters;
-  
-  // TODO: state and district are currently stubbed/ignored until columns added to Project model
+const getMapData = async (user, filters = {}) => {
+  const { riskLevel } = filters;
+  const scopeWhere = projectScopeWhere(user);
 
   const projects = await prisma.project.findMany({
+    where: scopeWhere,
     include: {
       risk_predictions: {
         orderBy: { predicted_at: 'desc' },
-        take: 1
-      }
-    }
+        take: 1,
+      },
+    },
   });
 
   const mapData = [];
@@ -25,9 +26,10 @@ const getMapData = async (filters = {}) => {
       continue; // skip projects without coordinates
     }
 
-    const latestPrediction = project.risk_predictions.length > 0 ? project.risk_predictions[0] : null;
+    const latestPrediction =
+      project.risk_predictions.length > 0 ? project.risk_predictions[0] : null;
     const projectRiskLevel = latestPrediction ? latestPrediction.risk_level : 'NONE';
-    
+
     if (riskLevel && riskLevel !== projectRiskLevel) {
       continue;
     }
@@ -40,13 +42,11 @@ const getMapData = async (filters = {}) => {
       location: project.location,
       risk_score: latestPrediction ? latestPrediction.risk_score : null,
       risk_level: projectRiskLevel !== 'NONE' ? projectRiskLevel : null,
-      delay_probability: latestPrediction ? latestPrediction.delay_probability : null
+      delay_probability: latestPrediction ? latestPrediction.delay_probability : null,
     });
   }
 
   return mapData;
 };
 
-module.exports = {
-  getMapData
-};
+module.exports = { getMapData };

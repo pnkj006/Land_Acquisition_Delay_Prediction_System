@@ -1,0 +1,20 @@
+column,role,note
+project_id,identifier,Unique synthetic project ID
+project_type,feature,Requested feature
+land_area_hectares,feature,Requested feature
+number_of_affected_families,feature,Requested feature
+compensation_status,feature,Requested feature
+approval_timeline_days,feature,Requested feature
+legal_disputes_count,feature,Requested feature
+possession_status,feature,Requested feature
+rehabilitation_progress_pct,feature,Requested feature
+stakeholder_responsiveness,feature,Requested feature
+historical_performance_score,feature,Requested feature
+administrator_id,feature,Synthetic anonymized ID
+manager,feature,Synthetic anonymized ID
+location,feature,State + district; synthetic project location
+altitude_m,feature,Synthetic elevation
+longitude,feature,Synthetic longitude
+delay_status,target,Prediction target
+delay_days,target,Outcome duration target
+risk_score,target,Prediction/risk target

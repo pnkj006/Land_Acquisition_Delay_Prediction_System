@@ -1,48 +1,57 @@
 /**
  * @description Routes for user management.
+ * §6, §7 of the RBAC V7 plan.
  */
 const router = require('express').Router();
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize } = require('../middlewares/rbac.middleware');
 const { validate } = require('../middlewares/validation.middleware');
-const { auditLog } = require('../middlewares/audit.middleware');
 const { createUserValidator, updateUserValidator } = require('../validators/user.validator');
 const userController = require('../controllers/user.controller');
-const { UserRole } = require('../models/User');
+const permissionController = require('../controllers/permission.controller');
 
-// GET /users → ADMIN only
-router.get('/', authenticate, requireRole(UserRole.ADMIN), userController.listUsers);
+router.use(authenticate);
 
-// POST /users → ADMIN only
+// GET /users — users:read
+router.get('/', authorize('users', 'read'), userController.listUsers);
+
+// POST /users — users:write
 router.post(
   '/', 
-  authenticate, 
-  requireRole(UserRole.ADMIN), 
+  authorize('users', 'write'), 
   createUserValidator, 
   validate, 
-  userController.createUser, 
-  auditLog('CREATE_USER')
+  userController.createUser
 );
 
-// PATCH /users/:userId → ADMIN and PROJECT_MANAGER
-// Note: Additional logic to prevent PMs from updating others might be needed in the controller/service
+// PATCH /users/:userId — users:write
 router.patch(
   '/:userId', 
-  authenticate, 
-  requireRole(UserRole.ADMIN, UserRole.PROJECT_MANAGER), 
+  authorize('users', 'write'), 
   updateUserValidator, 
   validate, 
-  userController.updateUser,
-  auditLog('UPDATE_USER')
+  userController.updateUser
 );
 
-// DELETE /users/:userId → ADMIN only
+// DELETE /users/:userId — users:delete
 router.delete(
   '/:userId', 
-  authenticate, 
-  requireRole(UserRole.ADMIN), 
-  userController.deleteUser,
-  auditLog('DELETE_USER')
+  authorize('users', 'delete'), 
+  userController.deleteUser
+);
+
+// GET /users/:id/permissions — users:read
+router.get(
+  '/:id/permissions',
+  authorize('users', 'read'),
+  permissionController.getPermissions
+);
+
+// PUT /users/:id/permissions — users:write
+router.put(
+  '/:id/permissions',
+  authorize('users', 'write'),
+  permissionController.setPermissions
 );
 
 module.exports = router;

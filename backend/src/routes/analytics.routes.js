@@ -1,15 +1,16 @@
 /**
  * @fileoverview Analytics routes
+ * §6 of the RBAC V7 plan.
  */
 const express = require('express');
 const analyticsController = require('../controllers/analytics.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize } = require('../middlewares/rbac.middleware');
 
 const router = express.Router();
 
-// Apply auth to all analytics routes
-router.use(authenticate, requireRole('ADMIN', 'PROJECT_MANAGER'));
+// All analytics routes require predictions:read
+router.use(authenticate, authorize('predictions', 'read'));
 
 router.get('/risk-distribution', analyticsController.riskDistribution);
 router.get('/state-risk', analyticsController.stateRisk);

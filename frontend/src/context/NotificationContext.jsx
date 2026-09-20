@@ -1,28 +1,29 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { MOCK_ALERTS } from '../api/alerts.api'
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
+import { getAlerts, markAllAlertsRead } from '../api/alerts.api'
 import { timeAgo } from '../utils/dateUtils'
 
 const NotificationContext = createContext(null)
 
 export function NotificationProvider({ children }) {
-  const [notifications, setNotifications] = useState(MOCK_ALERTS)
-  const [readIds, setReadIds] = useState(() => new Set())
-  const unreadCount = notifications.reduce((count, notification) => count + (readIds.has(notification.id) ? 0 : 1), 0)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
 
-  const markAllRead = useCallback(() => {
-    setReadIds(new Set(notifications.map((notification) => notification.id)))
-  }, [notifications])
-
-  const markAsRead = useCallback((id) => {
-    setReadIds((current) => new Set([...current, id]))
+  useEffect(() => {
+    getAlerts()
+      .then(data => {
+        setNotifications(data || [])
+        setUnreadCount((data || []).filter(n => !n.isRead).length)
+      })
+      .catch(err => console.error('Error fetching alerts:', err))
   }, [])
 
-  const markAsUnread = useCallback((id) => {
-    setReadIds((current) => {
-      const next = new Set(current)
-      next.delete(id)
-      return next
-    })
+  const markAllRead = useCallback(() => {
+    markAllAlertsRead()
+      .then(() => {
+        setUnreadCount(0)
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      })
+      .catch(err => console.error('Error marking alerts read:', err))
   }, [])
 
   const pushNotification = useCallback((notification) => {

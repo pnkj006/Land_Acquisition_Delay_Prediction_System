@@ -94,7 +94,7 @@ describe('Status API', () => {
         .get('/api/v1/projects/PRJ-001/status')
         .set('Authorization', 'Bearer VALID_PM');
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -130,7 +130,7 @@ describe('Status API', () => {
         rehabilitation_progress_pct: 10.0,
         stakeholder_responsiveness: 'MEDIUM',
       };
-      prisma.project.findUnique.mockResolvedValue(currentProject);
+      prisma.project.findFirst = jest.fn().mockResolvedValue(currentProject);
       prisma.projectStatusHistory.create.mockResolvedValue({ id: 1 });
       prisma.project.update.mockResolvedValue({
         ...currentProject,

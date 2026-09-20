@@ -25,8 +25,6 @@ exports.projectCreateValidators = [
   body('rehabilitation_progress_pct').optional().isFloat({ min: 0, max: 100 }),
   body('stakeholder_responsiveness').optional().isIn(RESPONSIVENESS_LEVELS),
   body('historical_performance_score').optional().isFloat({ min: 0, max: 1 }),
-  body('administrator_id').optional().isInt(),
-  body('project_manager_id').optional().isInt(),
   body('manager').optional().isString().isLength({ max: 150 }),
   body('location').optional().isString().isLength({ max: 255 }),
   body('state').optional().isString().isLength({ max: 100 }),
@@ -53,7 +51,6 @@ exports.projectUpdateValidators = [
   body('rehabilitation_progress_pct').optional().isFloat({ min: 0, max: 100 }),
   body('stakeholder_responsiveness').optional().isIn(RESPONSIVENESS_LEVELS),
   body('historical_performance_score').optional().isFloat({ min: 0, max: 1 }),
-  body('administrator_id').optional().isInt(),
   body('manager').optional().isString().isLength({ max: 150 }),
   body('location').optional().isString().isLength({ max: 255 }),
   body('state').optional().isString().isLength({ max: 100 }),
@@ -70,13 +67,6 @@ exports.projectUpdateValidators = [
     }
     return true;
   }),
-];
-
-// ─────────────────────────────
-// ASSIGN MANAGER
-// ─────────────────────────────
-exports.assignManagerValidators = [
-  body('project_manager_id').isInt().withMessage('project_manager_id is required and must be an integer'),
 ];
 
 // ─────────────────────────────

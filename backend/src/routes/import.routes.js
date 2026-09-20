@@ -1,25 +1,24 @@
 /**
  * @fileoverview Import Routes
+ * §6 of the RBAC V7 plan.
  */
 const express = require('express');
 const router = express.Router();
 const importController = require('../controllers/import.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize, authorizeAll } = require('../middlewares/rbac.middleware');
 const { uploadSingle } = require('../middlewares/upload.middleware');
-const { auditLog } = require('../middlewares/audit.middleware');
 
 router.post('/projects', 
   authenticate, 
-  requireRole('ADMIN'), 
+  authorize('projects', 'write', { requireScope: 'all' }), 
   uploadSingle('file'), 
-  auditLog('IMPORT_PROJECTS'), 
   importController.importProjects
 );
 
 router.get('/', 
   authenticate, 
-  requireRole('ADMIN'), 
+  authorize('projects', 'read', { requireScope: 'all' }), 
   importController.listImports
 );
 
