@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, MapPin, Navigation, Paperclip, X } from 'lucide-react'
+import { AlertTriangle, Camera, CheckCircle2, MapPin, Navigation, Paperclip, X } from 'lucide-react'
 import Button from '../common/Button.jsx'
 import Select from '../common/Select.jsx'
 import Input from '../common/Input.jsx'
+import ProgressBar from '../common/ProgressBar.jsx'
 import ProjectInfo from '../projects/ProjectInfo.jsx'
 import { PROJECT_STAGES, FIELD_UPDATE_TYPES } from '../../utils/constants'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -67,9 +68,12 @@ function defaultsFor(project) {
  * existing projects data, submittedBy from AuthContext, and there is no
  * upload destination (attachment metadata is captured client-side only).
  */
-export default function FieldUpdateForm({ projects = [], submitting = false, onSubmit }) {
+export default function FieldUpdateForm({ projects = [], submitting = false, onSubmit, onReset }) {
   const { user } = useAuth()
   const fileInputRef = useRef(null)
+  // Object URL for the local image preview. Kept in a ref as well so it can be
+  // revoked deterministically (replace / remove / unmount) without leaking.
+  const previewUrlRef = useRef('')
   const initial = defaultsFor(projects[0] || null)
 
   const [projectId, setProjectId] = useState(initial.projectId)
@@ -78,15 +82,24 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
   const [note, setNote] = useState('')
   const [progress, setProgress] = useState(initial.progress)
   const [attachment, setAttachment] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
   const [fileError, setFileError] = useState('')
   const [location, setLocation] = useState(initial.location)
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
+  const [locDenied, setLocDenied] = useState(false)
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState(false)
   const [saved, setSaved] = useState(false)
 
   const selectedProject = projects.find((p) => p.id === projectId) || null
+
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    },
+    [],
+  )
 
   // `projects` loads asynchronously (useProjects). If this form mounted before
   // the projects arrived it would have no default selection, so adopt the first
@@ -117,11 +130,12 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
-      setLocError('Geolocation is not supported by this browser.')
+      setLocError('Location services are not supported by this browser.')
       return
     }
     setLocating(true)
     setLocError('')
+    setLocDenied(false)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false)
@@ -132,11 +146,26 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
         })
       },
       () => {
+        // Permission denied / timeout — keep the project location as fallback.
         setLocating(false)
-        setLocError('Location unavailable — permission denied or timed out. The project site location is kept.')
+        setLocDenied(true)
       },
       { timeout: 10000, enableHighAccuracy: false },
     )
+  }
+
+  const clearPreview = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = ''
+    }
+    setPreviewUrl('')
+  }
+
+  const removeAttachment = () => {
+    clearPreview()
+    setAttachment(null)
+    setFileError('')
   }
 
   const handleAttachmentChange = (e) => {
@@ -149,9 +178,34 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
     } else if (file.size > MAX_FILE_SIZE) {
       setFileError('File size exceeds the allowed limit (10 MB).')
     } else {
-      setAttachment({ name: file.name, size: file.size, type: file.type })
+      clearPreview()
+      // Local object-URL preview for images. The File object is retained so a
+      // future multipart/form-data upload needs no rewrite — but nothing is
+      // sent anywhere today (the backend has no evidence-upload endpoint).
+      if (file.type && file.type.startsWith('image/')) {
+        previewUrlRef.current = URL.createObjectURL(file)
+        setPreviewUrl(previewUrlRef.current)
+      }
+      setAttachment({ name: file.name, size: file.size, type: file.type, file })
     }
     e.target.value = ''
+  }
+
+  /** Clears the form back to the selected project's real defaults. */
+  const handleReset = () => {
+    const defaults = defaultsFor(selectedProject || projects[0] || null)
+    setProjectId(defaults.projectId)
+    setStage(defaults.stage)
+    setProgress(defaults.progress)
+    setLocation(defaults.location)
+    setUpdateType('')
+    setNote('')
+    removeAttachment()
+    setLocError('')
+    setLocDenied(false)
+    setErrors({})
+    setSubmitError(false)
+    if (typeof onReset === 'function') onReset()
   }
 
   const validate = () => {
@@ -205,7 +259,11 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
         updateType,
         note,
         progress: Object.keys(progressPayload).length ? progressPayload : null,
-        attachment,
+        // Metadata only — the File object stays in local state (there is no
+        // evidence-upload endpoint, so nothing is transmitted).
+        attachment: attachment
+          ? { name: attachment.name, size: attachment.size, type: attachment.type }
+          : null,
         location,
         submittedBy: user ? { name: user.name, role: user.role } : null,
       })
@@ -217,24 +275,54 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
 
     setSaved(true)
     setNote('')
-    setAttachment(null)
-    setFileError('')
+    removeAttachment()
     setProgress((prev) => ({ ...prev, compensated: '', progressPct: '' }))
     setTimeout(() => setSaved(false), 1500)
   }
 
+  // Live progress indicator value (invalid/empty input simply shows nothing).
+  const progressPctValue =
+    progress.progressPct === '' || Number.isNaN(Number(progress.progressPct))
+      ? null
+      : Number(progress.progressPct)
+
   const inputClass =
     'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25'
 
-  const locationNote = (() => {
-    if (!selectedProject || !location) return null
-    if (location.source === 'project') {
+  // Location state labels (§16) — derived from real state, never invented.
+  const locationStateNote = () => {
+    if (locError) {
       return (
-        <p className="flex items-center gap-1 text-[10px] text-green-600">
-          <CheckCircle2 className="h-3 w-3" /> Using the registered project site location.
+        <p className="flex items-center gap-1 text-[10px] text-amber-600">
+          <AlertTriangle className="h-3 w-3" /> {locError}
         </p>
       )
     }
+    if (locDenied) {
+      return (
+        <p className="flex items-center gap-1 text-[10px] text-amber-600">
+          <AlertTriangle className="h-3 w-3" /> Location permission was denied. Project location retained.
+        </p>
+      )
+    }
+    if (location && location.source === 'device') {
+      return (
+        <p className="flex items-center gap-1 text-[10px] text-green-600">
+          <CheckCircle2 className="h-3 w-3" /> Using your current location.
+        </p>
+      )
+    }
+    return (
+      <p className="flex items-center gap-1 text-[10px] text-gray-500">
+        <MapPin className="h-3 w-3" /> Using project location.
+      </p>
+    )
+  }
+
+  // Real distance check (haversine) against the project's registered
+  // coordinates — only when a device reading exists. No fake GPS validation.
+  const distanceNote = (() => {
+    if (!selectedProject || !location || location.source !== 'device') return null
     const distance = distanceKm(location, selectedProject)
     return distance <= LOCATION_MATCH_KM ? (
       <p className="flex items-center gap-1 text-[10px] text-green-600">
@@ -250,10 +338,8 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
   return (
     <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-800">Submit Field Update</h3>
-        <p className="text-[11px] text-gray-400">
-          Record on-site progress — stage, update type, evidence and location
-        </p>
+        <h3 className="text-sm font-semibold text-gray-800">Field Update</h3>
+        <p className="text-[11px] text-gray-400">Record a new field-level project update</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -313,7 +399,7 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-600">Project Progress</span>
+          <span className="text-xs font-medium text-gray-600">Project Status</span>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Input
               label="Families Affected"
@@ -346,6 +432,10 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
               placeholder="Optional · 0–100"
             />
           </div>
+          {/* Live progress indicator — updates as the value changes */}
+          {progressPctValue !== null ? (
+            <ProgressBar value={progressPctValue} color="bg-accent" showLabel className="pt-0.5" />
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -372,58 +462,104 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
           {errors.note ? <span className="text-xs text-red-600">{errors.note}</span> : null}
         </div>
 
-        {/* Attachment — metadata only (client-side); no upload endpoint exists */}
+        {/* Evidence — optional. The backend has no evidence-upload endpoint, so
+            the file stays client-side: filename/size metadata plus a local
+            image preview. The File object is retained for a future
+            multipart/form-data integration; nothing is uploaded. */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-600">Upload Evidence</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={handleAttachmentChange}
-              className="hidden"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              icon={Paperclip}
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            >
-              Choose Files
-            </Button>
-            {attachment ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-600">
-                <Paperclip className="h-3 w-3" />
-                <span className="max-w-[180px] truncate">{attachment.name}</span>
-                <span className="text-gray-400">({formatBytes(attachment.size)})</span>
+          <span className="text-xs font-medium text-gray-600">Evidence</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleAttachmentChange}
+            className="hidden"
+          />
+
+          {attachment ? (
+            <div className="flex flex-wrap items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt={attachment.name}
+                  className="h-20 w-28 shrink-0 rounded-md border border-gray-200 object-cover"
+                />
+              ) : (
+                <span className="flex h-20 w-28 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-400">
+                  <Paperclip className="h-6 w-6" />
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="truncate text-xs font-semibold text-gray-700" title={attachment.name}>
+                  {attachment.name}
+                </p>
+                <p className="text-[10px] text-gray-400">{formatBytes(attachment.size)}</p>
                 <button
                   type="button"
-                  onClick={() => setAttachment(null)}
-                  aria-label="Remove attachment"
-                  className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+                  onClick={removeAttachment}
+                  className="mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3 w-3" /> Remove
                 </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={Camera}
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              >
+                Choose Photo
+              </Button>
+              <span className="text-[10px] text-gray-400">
+                Optional · JPG, PNG images, or PDF, DOC, DOCX documents up to 10 MB
               </span>
-            ) : (
-              <span className="text-[10px] text-gray-400">Optional · PDF, JPG, PNG, DOC, DOCX up to 10 MB</span>
-            )}
-          </div>
+            </div>
+          )}
           {fileError ? <span className="text-xs text-red-600">{fileError}</span> : null}
         </div>
 
-        {/* Location — project site by default, optional device GPS with
-            real distance verification against the project coordinates */}
+        {/* Location — the project's registered coordinates by default, with an
+            optional device GPS reading and a real distance check (§14) */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-600">Update Location</span>
+          <span className="text-xs font-medium text-gray-600">📍 Update Location</span>
+
+          <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+              Project Location
+            </p>
+            <dl className="grid grid-cols-1 gap-x-5 gap-y-2 text-[11px] sm:grid-cols-3">
+              <div className="flex min-w-0 flex-col">
+                <dt className="text-gray-400">District</dt>
+                <dd className="truncate font-semibold text-gray-700">
+                  {selectedProject ? selectedProject.district : '—'}
+                </dd>
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <dt className="text-gray-400">Latitude</dt>
+                <dd className="truncate font-semibold text-gray-700">
+                  {selectedProject ? selectedProject.lat : '—'}
+                </dd>
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <dt className="text-gray-400">Longitude</dt>
+                <dd className="truncate font-semibold text-gray-700">
+                  {selectedProject ? selectedProject.lng : '—'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-600">
-              <MapPin className="h-3 w-3" />
-              {location
-                ? `${location.lat}, ${location.lng} · ${location.source === 'device' ? 'Current location' : 'Project site'}`
-                : 'No location'}
-            </span>
+            {location && location.source === 'device' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-600">
+                <Navigation className="h-3 w-3" />
+                {location.lat}, {location.lng} · Current location
+              </span>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -432,11 +568,11 @@ export default function FieldUpdateForm({ projects = [], submitting = false, onS
               onClick={handleUseMyLocation}
               disabled={locating}
             >
-              {locating ? 'Locating…' : 'Use my location'}
+              {locating ? 'Locating…' : 'Use My Location'}
             </Button>
           </div>
-          {locationNote}
-          {locError ? <span className="text-xs text-red-600">{locError}</span> : null}
+          {locationStateNote()}
+          {distanceNote}
         </div>
 
         <div className="flex items-center justify-between border-t border-gray-50 pt-3">

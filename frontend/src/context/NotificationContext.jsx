@@ -6,20 +6,37 @@ const NotificationContext = createContext(null)
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState(MOCK_ALERTS)
-  const [unreadCount, setUnreadCount] = useState(MOCK_ALERTS.length)
+  const [readIds, setReadIds] = useState(() => new Set())
+  const unreadCount = notifications.reduce((count, notification) => count + (readIds.has(notification.id) ? 0 : 1), 0)
 
   const markAllRead = useCallback(() => {
-    setUnreadCount(0)
+    setReadIds(new Set(notifications.map((notification) => notification.id)))
+  }, [notifications])
+
+  const markAsRead = useCallback((id) => {
+    setReadIds((current) => new Set([...current, id]))
+  }, [])
+
+  const markAsUnread = useCallback((id) => {
+    setReadIds((current) => {
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
   }, [])
 
   const pushNotification = useCallback((notification) => {
     setNotifications((prev) => [{ ...notification, timestamp: new Date().toISOString() }, ...prev])
-    setUnreadCount((count) => count + 1)
+    setReadIds((current) => {
+      const next = new Set(current)
+      next.delete(notification.id)
+      return next
+    })
   }, [])
 
   const value = useMemo(
-    () => ({ notifications, unreadCount, markAllRead, pushNotification, timeAgo }),
-    [notifications, unreadCount, markAllRead, pushNotification],
+    () => ({ notifications, unreadCount, readIds, markAllRead, markAsRead, markAsUnread, pushNotification, timeAgo }),
+    [notifications, unreadCount, readIds, markAllRead, markAsRead, markAsUnread, pushNotification],
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>

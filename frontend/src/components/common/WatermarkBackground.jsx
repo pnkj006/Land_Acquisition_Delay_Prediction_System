@@ -7,7 +7,7 @@ import logo from '../../assets/images/logo.png'
  * - opacity 0.05 (within the 0.04–0.08 accessibility-safe band).
  * - Single large image (~520px), centered, never tiled.
  */
-export default function WatermarkBackground() {
+export default function WatermarkBackground({ imageClassName = '' }) {
   return (
     <div
       aria-hidden="true"
@@ -17,7 +17,7 @@ export default function WatermarkBackground() {
         src={logo}
         alt=""
         draggable={false}
-        className="w-[520px] max-w-[85vw] select-none opacity-[0.05]"
+        className={`w-[520px] max-w-[85vw] select-none ${imageClassName || 'opacity-[0.05]'}`}
       />
     </div>
   )
