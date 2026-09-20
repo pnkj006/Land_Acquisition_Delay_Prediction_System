@@ -91,7 +91,7 @@ export default function ProjectTable({
                 <tr
                   key={project.id}
                   className="cursor-pointer transition-colors hover:bg-gray-50/60"
-                  onClick={() => (onView ? onView(project) : navigate(`/project-manager/projects/${project.id}`))}
+                  onClick={() => (onView ? onView(project) : navigate(`/projects/${project.id}`))}
                 >
                   <td className="px-4 py-3 font-semibold text-accent">{project.id}</td>
                   <td className="max-w-[200px] truncate px-4 py-3 font-medium text-gray-800">{project.name}</td>
@@ -116,7 +116,7 @@ export default function ProjectTable({
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      onClick={() => onView ? onView(project) : navigate(`/project-manager/projects/${project.id}`)}
+                      onClick={() => onView ? onView(project) : navigate(`/projects/${project.id}`)}
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
                     >
                       <Eye className="h-3 w-3" /> View

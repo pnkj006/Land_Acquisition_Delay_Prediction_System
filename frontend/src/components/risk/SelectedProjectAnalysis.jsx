@@ -48,7 +48,7 @@ export default function SelectedProjectAnalysis({
             {project.id} — {project.name}
           </h3>
         </div>
-        {/* Reuses the EXISTING project details route (/project-manager/projects/:id)
+        {/* Reuses the project details route (/projects/:id)
             — same navigation as the dashboard "Take Action" CTA. */}
         <Button
           size="sm"

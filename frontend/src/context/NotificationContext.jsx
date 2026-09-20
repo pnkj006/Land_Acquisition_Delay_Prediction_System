@@ -28,12 +28,16 @@ export function NotificationProvider({ children }) {
 
   const pushNotification = useCallback((notification) => {
     setNotifications((prev) => [{ ...notification, timestamp: new Date().toISOString() }, ...prev])
-    setUnreadCount((count) => count + 1)
+    setReadIds((current) => {
+      const next = new Set(current)
+      next.delete(notification.id)
+      return next
+    })
   }, [])
 
   const value = useMemo(
-    () => ({ notifications, unreadCount, markAllRead, pushNotification, timeAgo }),
-    [notifications, unreadCount, markAllRead, pushNotification],
+    () => ({ notifications, unreadCount, readIds, markAllRead, markAsRead, markAsUnread, pushNotification, timeAgo }),
+    [notifications, unreadCount, readIds, markAllRead, markAsRead, markAsUnread, pushNotification],
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
