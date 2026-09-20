@@ -84,7 +84,7 @@ export default function AlertDetailModal({ alert, project, open, onClose }) {
               icon={ArrowRight}
               onClick={() => {
                 onClose()
-                navigate(`/projects/${project.id}`)
+                navigate(`/project-manager/projects/${project.id}`)
               }}
             >
               Open Project Details

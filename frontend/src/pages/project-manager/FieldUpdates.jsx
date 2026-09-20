@@ -241,7 +241,7 @@ export default function FieldUpdates() {
                   size="sm"
                   variant="outline"
                   icon={Eye}
-                  onClick={() => navigate(`/projects/${lastSubmitted.projectId}`)}
+                  onClick={() => navigate(`/project-manager/projects/${lastSubmitted.projectId}`)}
                 >
                   View Project
                 </Button>
@@ -353,7 +353,7 @@ export default function FieldUpdates() {
                             every other page */}
                         <button
                           type="button"
-                          onClick={() => navigate(`/projects/${update.projectId}`)}
+                          onClick={() => navigate(`/project-manager/projects/${update.projectId}`)}
                           className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
                         >
                           <Eye className="h-3 w-3" /> View project

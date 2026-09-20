@@ -168,7 +168,7 @@ export default function RiskAnalysis() {
             predictionLoading={riskLoading}
             recommendations={recommendations}
             recommendationsLoading={recsLoading}
-            onOpenDetails={(projectId) => navigate(`/projects/${projectId}`)}
+            onOpenDetails={(projectId) => navigate(`/project-manager/projects/${projectId}`)}
           />
         </div>
       )}
