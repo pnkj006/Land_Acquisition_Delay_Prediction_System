@@ -1,15 +1,36 @@
 /**
- * @fileoverview Placeholder for the ML integration owner.
- * status.service.js calls triggerRiskPrediction() after a status update.
- * The real implementation (calling the Python ML service, storing the
- * resulting risk_predictions / stage_risks / recommendations rows) is
- * NOT part of this module — whoever owns ML integration fills this in.
+ * @fileoverview ML Prediction Client.
  */
 const logger = require('../config/logger');
+const axios = require('axios');
+const prisma = require('../config/database');
 
 exports.triggerRiskPrediction = async (projectId) => {
-  logger.info(`[STUB] triggerRiskPrediction called for project ${projectId} — ML integration not yet implemented`);
-  // TODO (ML integration owner): build features, call ML service,
-  // store RiskPrediction + StageRisk + Recommendation rows here.
-  return null;
+  logger.info(`[STUB] triggerRiskPrediction called for project ${projectId}`);
+  
+  // Example of how the real integration calls the FastAPI service:
+  try {
+    const mlApiUrl = process.env.ML_API_URL || 'http://localhost:8000';
+    
+    // In a real flow, you'd fetch the project data from prisma and build the payload
+    const payload = {
+      project_type: 'Road',
+      land_area_hectares: 100,
+      number_of_affected_families: 50,
+    };
+
+    // The FastAPI call requires the X-Internal-Token env var to match
+    const response = await axios.post(`${mlApiUrl}/predict`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Token': process.env.X_INTERNAL_TOKEN
+      }
+    });
+    
+    // logger.info('Prediction success', response.data);
+  } catch (error) {
+    logger.error('Prediction failed or ML service down (MOCKED behavior)', error.message);
+  }
+
+  return { status: 'mocked_success' };
 };

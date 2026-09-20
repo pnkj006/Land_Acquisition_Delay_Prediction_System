@@ -1,21 +1,29 @@
 /**
  * @fileoverview Recommendation Routes
+ * §6 of the RBAC V7 plan.
+ * Mounted at app root level in app.js.
  */
 const express = require('express');
 const router = express.Router();
 const recommendationController = require('../controllers/recommendation.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize } = require('../middlewares/rbac.middleware');
+const { auditRequest } = require('../middlewares/audit.middleware');
 
-router.get('/projects/:projectId/recommendations', 
-  authenticate, 
-  requireRole('ADMIN', 'PROJECT_MANAGER'), 
+router.use(authenticate);
+
+// GET /projects/:projectId/recommendations — recommendations:read, scope in service
+router.get(
+  '/projects/:projectId/recommendations',
+  authorize('recommendations', 'read'),
   recommendationController.getRecommendations
 );
 
-router.patch('/recommendations/:recommendationId', 
-  authenticate, 
-  requireRole('ADMIN', 'PROJECT_MANAGER'), 
+// PATCH /recommendations/:recommendationId — recommendations:write, scope through project
+router.patch(
+  '/recommendations/:recommendationId',
+  authorize('recommendations', 'write'),
+  auditRequest('recommendation_updated'),
   recommendationController.updateRecommendationStatus
 );
 

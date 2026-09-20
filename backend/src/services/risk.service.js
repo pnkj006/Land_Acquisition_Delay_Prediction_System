@@ -1,39 +1,33 @@
 /**
  * @fileoverview Risk Service
- * Pure reads over risk_predictions, stage_risks, and the top_factors
- * JSON field. Prediction writing is owned by ML integration, not this module.
+ * Pure reads over risk_predictions, stage_risks, and top_factors.
+ * Uses assertProjectInScope for scope enforcement.
+ * §5.4 of the RBAC V7 plan.
  */
 const prisma = require('../config/database');
+const { assertProjectInScope } = require('../utils/scope');
 const { resolveProjectWhere } = require('../utils/resolveProject');
+const { triggerRiskPrediction } = require('../ml/predictionClient');
+const logger = require('../config/logger');
 
 /**
- * Loads the project and enforces PM ownership scoping.
- * Shared by all four risk read operations below.
+ * Resolves and scope-checks a project.
+ * Non-existent and out-of-scope both return the same 404.
  */
 async function getScopedProject(projectIdParam, user) {
   const where = resolveProjectWhere(projectIdParam);
-  const project = await prisma.project.findUnique({ where });
-
-  if (!project) {
+  const found = await prisma.project.findFirst({ where });
+  if (!found) {
     const err = new Error('Project not found');
     err.statusCode = 404;
     err.code = 'PROJECT_NOT_FOUND';
     throw err;
   }
-
-  if (user.role === 'PROJECT_MANAGER' && project.project_manager_id !== user.id) {
-    const err = new Error('You do not have access to this project');
-    err.statusCode = 403;
-    err.code = 'FORBIDDEN';
-    throw err;
-  }
-
-  return project;
+  return assertProjectInScope(user, found.id);
 }
 
 /**
  * getCurrentRisk(projectIdParam, user)
- * Returns the single most recent risk_predictions row for this project.
  */
 exports.getCurrentRisk = async (projectIdParam, user) => {
   const project = await getScopedProject(projectIdParam, user);
@@ -62,7 +56,6 @@ exports.getCurrentRisk = async (projectIdParam, user) => {
 
 /**
  * getRiskHistory(projectIdParam, user, page, limit, skip)
- * Returns { items, total } of past predictions, newest first.
  */
 exports.getRiskHistory = async (projectIdParam, user, page, limit, skip) => {
   const project = await getScopedProject(projectIdParam, user);
@@ -82,8 +75,6 @@ exports.getRiskHistory = async (projectIdParam, user, page, limit, skip) => {
 
 /**
  * getStageRisks(projectIdParam, user)
- * Returns the stage-wise breakdown for the LATEST prediction only —
- * older predictions' stage data is available via /risk/history if needed.
  */
 exports.getStageRisks = async (projectIdParam, user) => {
   const project = await getScopedProject(projectIdParam, user);
@@ -113,7 +104,6 @@ exports.getStageRisks = async (projectIdParam, user) => {
 
 /**
  * getRiskFactors(projectIdParam, user)
- * Returns the top_factors JSON array off the LATEST prediction.
  */
 exports.getRiskFactors = async (projectIdParam, user) => {
   const project = await getScopedProject(projectIdParam, user);
@@ -135,4 +125,19 @@ exports.getRiskFactors = async (projectIdParam, user) => {
     predictedAt: latest.predicted_at,
     factors: latest.top_factors || [],
   };
+};
+
+/**
+ * rerunPrediction(projectIdParam, user)
+ * Scope check BEFORE calling FastAPI (§7.7).
+ */
+exports.rerunPrediction = async (projectIdParam, user) => {
+  const project = await getScopedProject(projectIdParam, user);
+
+  logger.info(`Rerun prediction requested for project ${project.project_id} by user ${user.id}`);
+
+  // Trigger ML pipeline — scope already verified
+  const result = await triggerRiskPrediction(project.id);
+
+  return { projectId: project.project_id, status: 'queued', result };
 };

@@ -8,7 +8,7 @@ const logger = require('../config/logger');
 exports.getMapData = async (req, res, next) => {
   try {
     const { riskLevel, state, district } = req.query;
-    const data = await mapService.getMapData({ riskLevel, state, district });
+    const data = await mapService.getMapData(req.user, { riskLevel, state, district });
     return sendSuccess(res, data, 'Map data fetched successfully');
   } catch (error) {
     logger.error(`Error in getMapData: ${error.message}`);

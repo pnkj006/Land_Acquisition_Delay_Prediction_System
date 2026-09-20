@@ -1,57 +1,73 @@
 /**
  * @fileoverview Project Routes
+ * §6 of the RBAC V7 plan.
  */
 const express = require('express');
 const router = express.Router();
 
 const controller = require('../controllers/project.controller');
+const assignmentController = require('../controllers/assignment.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const { requireRole } = require('../middlewares/role.middleware');
+const { authorize } = require('../middlewares/rbac.middleware');
+const { auditRequest } = require('../middlewares/audit.middleware');
 const { validate } = require('../middlewares/validation.middleware');
 const {
   projectCreateValidators,
   projectUpdateValidators,
-  assignManagerValidators,
   projectListQueryValidators,
 } = require('../validators/project.validator');
 
 // All project routes require authentication
 router.use(authenticate);
 
-// GET /projects — both roles (PM scoped to own projects in the service)
-router.get('/', projectListQueryValidators, validate, controller.listProjects);
+// GET /projects — all roles with projects:read (silently scope-filtered)
+router.get(
+  '/',
+  authorize('projects', 'read'),
+  projectListQueryValidators,
+  validate,
+  controller.listProjects
+);
 
-// POST /projects — ADMIN only
+// POST /projects — requires projects:write AND global scope (ADMIN only in practice)
 router.post(
   '/',
-  requireRole('ADMIN'),
+  authorize('projects', 'write', { requireScope: 'all' }),
   projectCreateValidators,
   validate,
+  auditRequest('project_created'),
   controller.createProject
 );
 
-// GET /projects/:projectId — both roles (PM ownership checked in the service)
-router.get('/:projectId', controller.getProject);
+// GET /projects/:projectId — scope-checked in service
+router.get(
+  '/:projectId',
+  authorize('projects', 'read'),
+  controller.getProject
+);
 
-// PATCH /projects/:projectId — ADMIN only
+// PATCH /projects/:projectId — scope-checked in service
 router.patch(
   '/:projectId',
-  requireRole('ADMIN'),
+  authorize('projects', 'write'),
   projectUpdateValidators,
   validate,
+  auditRequest('project_updated'),
   controller.updateProject
 );
 
-// DELETE /projects/:projectId — ADMIN only
-router.delete('/:projectId', requireRole('ADMIN'), controller.deleteProject);
+// GET /projects/:id/assignments — assignments:read
+router.get(
+  '/:projectId/assignments',
+  authorize('assignments', 'read'),
+  assignmentController.getAssignments
+);
 
-// PATCH /projects/:projectId/assign-manager — ADMIN only
-router.patch(
-  '/:projectId/assign-manager',
-  requireRole('ADMIN'),
-  assignManagerValidators,
-  validate,
-  controller.assignManager
+// PUT /projects/:id/assignments — assignments:write (admin only in practice)
+router.put(
+  '/:projectId/assignments',
+  authorize('assignments', 'write'),
+  assignmentController.setAssignments
 );
 
 module.exports = router;

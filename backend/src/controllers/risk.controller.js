@@ -55,3 +55,15 @@ exports.getRiskFactors = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * POST /projects/:projectId/risk/rerun
+ */
+exports.rerunPrediction = async (req, res, next) => {
+  try {
+    const result = await riskService.rerunPrediction(req.params.projectId, req.user);
+    return sendSuccess(res, result, 'Prediction rerun queued successfully');
+  } catch (err) {
+    next(err);
+  }
+};

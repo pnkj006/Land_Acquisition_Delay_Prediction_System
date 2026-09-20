@@ -1,19 +1,25 @@
 /**
  * @fileoverview Alert Service
+ * Scoped by project via project_assignments, not by user_id on Alert.
+ * §5.4, §7 of the RBAC V7 plan.
+ *
+ * Note: Alert.user_id column is kept but NOT used for scoping (§2 preflight).
  */
 const prisma = require('../config/database');
 const logger = require('../config/logger');
+const { projectScopeWhere, assertProjectInScope } = require('../utils/scope');
 
-exports.getAlerts = async (userId, role, filters = {}, page = 1, limit = 10, skip = 0) => {
+/**
+ * getAlerts(user, filters, page, limit, skip)
+ * Silently scope-filters alerts by the user's accessible projects.
+ */
+exports.getAlerts = async (user, filters = {}, page = 1, limit = 10, skip = 0) => {
+  const scopeWhere = projectScopeWhere(user);
   const where = {};
-  
-  if (role === 'PROJECT_MANAGER') {
-    const projects = await prisma.project.findMany({
-      where: { project_manager_id: userId },
-      select: { id: true }
-    });
-    const projectIds = projects.map(p => p.id);
-    where.project_id = { in: projectIds };
+
+  // Scope through project relation
+  if (Object.keys(scopeWhere).length > 0) {
+    where.project = scopeWhere;
   }
 
   if (filters.severity) {
@@ -29,55 +35,59 @@ exports.getAlerts = async (userId, role, filters = {}, page = 1, limit = 10, ski
       skip,
       take: limit,
       include: {
-        project: { select: { project_id: true, location: true } }
+        project: { select: { project_id: true, location: true } },
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: { created_at: 'desc' },
     }),
-    prisma.alert.count({ where })
+    prisma.alert.count({ where }),
   ]);
 
   return { items, total };
 };
 
-exports.markRead = async (alertId, userId, role) => {
-  const alert = await prisma.alert.findUnique({
-    where: { id: alertId },
-    include: { project: true }
+/**
+ * markRead(alertId, user)
+ * Out-of-scope or non-existent → 404 (identical, per §5.5).
+ */
+exports.markRead = async (alertId, user) => {
+  const scopeWhere = projectScopeWhere(user);
+
+  // Find alert with scope filter through project
+  const alert = await prisma.alert.findFirst({
+    where: {
+      id: alertId,
+      ...(Object.keys(scopeWhere).length > 0 ? { project: scopeWhere } : {}),
+    },
   });
 
   if (!alert) {
     const error = new Error('Alert not found');
     error.statusCode = 404;
+    error.code = 'NOT_FOUND';
     throw error;
   }
 
-  if (role === 'PROJECT_MANAGER' && alert.project.project_manager_id !== userId) {
-    const error = new Error('Forbidden');
-    error.statusCode = 403;
-    throw error;
-  }
-
-  return await prisma.alert.update({
+  return prisma.alert.update({
     where: { id: alertId },
-    data: { is_read: true }
+    data: { is_read: true },
   });
 };
 
-exports.markAllRead = async (userId, role) => {
-  let where = { is_read: false };
-  
-  if (role === 'PROJECT_MANAGER') {
-    const projects = await prisma.project.findMany({
-      where: { project_manager_id: userId },
-      select: { id: true }
-    });
-    const projectIds = projects.map(p => p.id);
-    where.project_id = { in: projectIds };
+/**
+ * markAllRead(user)
+ * updateMany with scope filter on project.
+ */
+exports.markAllRead = async (user) => {
+  const scopeWhere = projectScopeWhere(user);
+  const where = { is_read: false };
+
+  if (Object.keys(scopeWhere).length > 0) {
+    where.project = scopeWhere;
   }
 
   const result = await prisma.alert.updateMany({
     where,
-    data: { is_read: true }
+    data: { is_read: true },
   });
 
   return { count: result.count };

@@ -1,11 +1,11 @@
 /**
  * @fileoverview Status Service
- * Handles reading current project status and the officer status-update flow:
- * snapshot current values to history -> apply new values -> trigger ML prediction.
+ * Uses assertProjectInScope for scope enforcement.
+ * §5.4 of the RBAC V7 plan.
  */
 const prisma = require('../config/database');
 const logger = require('../config/logger');
-const auditService = require('./audit.service');
+const { assertProjectInScope } = require('../utils/scope');
 const { resolveProjectWhere } = require('../utils/resolveProject');
 const { triggerRiskPrediction } = require('../ml/predictionClient');
 
@@ -19,35 +19,27 @@ const STATUS_FIELDS = [
 ];
 
 /**
- * Fetches a project and enforces PM ownership scoping.
- * Shared by both getCurrentStatus and updateStatus.
+ * Resolves and scope-checks a project.
+ * Non-existent and out-of-scope both return the same 404.
  */
 async function getScopedProject(projectIdParam, user) {
   const where = resolveProjectWhere(projectIdParam);
-  const project = await prisma.project.findUnique({ where });
 
-  if (!project) {
+  // First resolve to get the numeric ID
+  const found = await prisma.project.findFirst({ where });
+  if (!found) {
     const err = new Error('Project not found');
     err.statusCode = 404;
     err.code = 'PROJECT_NOT_FOUND';
     throw err;
   }
 
-  if (user.role === 'PROJECT_MANAGER' && project.project_manager_id !== user.id) {
-    const err = new Error('You do not have access to this project');
-    err.statusCode = 403;
-    err.code = 'FORBIDDEN';
-    throw err;
-  }
-
-  return project;
+  // Then scope-check (produces identical 404 if out of scope)
+  return assertProjectInScope(user, found.id);
 }
 
 /**
  * getCurrentStatus(projectIdParam, user)
- * Current status lives directly on the Project record itself
- * (compensation_status, approval_timeline_days, etc.) — this just
- * returns that slice of fields.
  */
 exports.getCurrentStatus = async (projectIdParam, user) => {
   const project = await getScopedProject(projectIdParam, user);
@@ -66,17 +58,11 @@ exports.getCurrentStatus = async (projectIdParam, user) => {
 
 /**
  * updateStatus(projectIdParam, data, user)
- * 1. Load project, enforce ownership
- * 2. Snapshot the CURRENT (pre-update) values into project_status_history
- * 3. Apply the new values to the project
- * 4. Trigger the ML prediction pipeline (stub — not this module's responsibility)
- * 5. Audit log
  */
 exports.updateStatus = async (projectIdParam, data, user) => {
   const project = await getScopedProject(projectIdParam, user);
 
-  // Snapshot current values BEFORE overwriting, so history reflects
-  // what the status actually was up to this point.
+  // Snapshot current values BEFORE overwriting
   await prisma.projectStatusHistory.create({
     data: {
       project_id: project.id,
@@ -90,7 +76,6 @@ exports.updateStatus = async (projectIdParam, data, user) => {
     },
   });
 
-  // Apply only the fields actually provided in the request
   const updateData = {};
   for (const field of STATUS_FIELDS) {
     if (data[field] !== undefined) updateData[field] = data[field];
@@ -101,14 +86,7 @@ exports.updateStatus = async (projectIdParam, data, user) => {
     data: updateData,
   });
 
-  await auditService.log(user.id, 'UPDATE_PROJECT_STATUS', project.id, {
-    project_id: project.project_id,
-    changedFields: Object.keys(updateData),
-  });
-
-  // Hand off to ML integration — not built by this module.
-  // Intentionally not awaited-and-blocking on failure: a slow/broken
-  // ML service shouldn't prevent the status update itself from succeeding.
+  // Trigger ML pipeline (non-blocking)
   triggerRiskPrediction(project.id).catch((err) =>
     logger.error(`triggerRiskPrediction failed for project ${project.id}`, err)
   );

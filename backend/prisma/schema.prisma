@@ -10,6 +10,8 @@ datasource db {
 enum Role {
   ADMIN
   PROJECT_MANAGER
+  SENIOR_OFFICIAL
+  STAFF
 }
 
 enum RiskLevel {
@@ -76,12 +78,19 @@ model User {
   email         String   @unique
   password_hash String
   role          Role
+  is_active     Boolean  @default(true)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  managed_projects        Project[]              @relation("ManagedProjects")
-  administered_projects   Project[]              @relation("AdministeredProjects")
+  // RBAC relations
+  permissions         UserPermission[]
+  project_assignments ProjectAssignment[]
+
+  // Legacy relations (kept until migration 2)
+  managed_projects      Project[]              @relation("ManagedProjects")
+  administered_projects Project[]              @relation("AdministeredProjects")
+
   recorded_status_updates ProjectStatusHistory[]
   audit_logs              AuditLog[]
   imports                 ImportHistory[]
@@ -103,6 +112,7 @@ model Project {
   rehabilitation_progress_pct  Float?
   stakeholder_responsiveness   StakeholderResponsiveness?
   historical_performance_score Float?
+  // Legacy columns — removed in migration 2
   administrator_id             Int?
   project_manager_id           Int?
   manager                      String?
@@ -119,8 +129,12 @@ model Project {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  // Legacy relations — removed in migration 2
   administrator   User? @relation("AdministeredProjects", fields: [administrator_id], references: [id])
   project_manager User? @relation("ManagedProjects", fields: [project_manager_id], references: [id])
+
+  // RBAC back-relation
+  project_assignments ProjectAssignment[]
 
   status_history   ProjectStatusHistory[]
   risk_predictions RiskPrediction[]
@@ -133,6 +147,30 @@ model Project {
   @@index([state])
   @@index([district])
   @@index([project_manager_id])
+}
+
+model ProjectAssignment {
+  id         Int     @id @default(autoincrement())
+  project_id Int
+  user_id    Int
+  project    Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@index([project_id])
+  @@index([user_id])
+  @@map("project_assignments")
+}
+
+model UserPermission {
+  id       Int    @id @default(autoincrement())
+  user_id  Int
+  resource String
+  action   String
+  user     User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, resource, action])
+  @@map("user_permissions")
 }
 
 model ProjectStatusHistory {
@@ -224,14 +262,18 @@ model Alert {
 }
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  user_id    Int?
-  action     String
-  project_id Int?
-  details    Json?
-  created_at DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  role        String?
+  action      String
+  resource    String?
+  resource_id Int?
+  // Legacy column: kept for rows written before this migration
+  project_id  Int?
+  details     Json?
+  created_at  DateTime @default(now())
 
-  user User? @relation(fields: [user_id], references: [id])
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
   @@index([user_id])
@@ -246,10 +288,10 @@ model ImportHistory {
   successful_rows Int
   failed_rows     Int
   errors          Json?
-  imported_by     Int?
+  imported_by     Int?     @map("imported_by")
   created_at      DateTime @default(now())
 
-  importer User? @relation(fields: [imported_by], references: [id])
+  uploader User? @relation(fields: [imported_by], references: [id], onDelete: SetNull)
 
   @@map("import_history")
 }

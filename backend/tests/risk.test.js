@@ -53,7 +53,7 @@ const prisma = require('../src/config/database');
 describe('Risk API', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.project.findUnique.mockResolvedValue({ id: 1, project_id: 'PRJ-001', project_manager_id: 2 });
+    prisma.project.findFirst = jest.fn().mockResolvedValue({ id: 1, project_id: 'PRJ-001' });
   });
 
   describe('GET /api/v1/projects/:projectId/risk', () => {
@@ -93,7 +93,7 @@ describe('Risk API', () => {
         .get('/api/v1/projects/PRJ-001/risk')
         .set('Authorization', 'Bearer VALID_PM');
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 

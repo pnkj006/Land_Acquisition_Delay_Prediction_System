@@ -94,7 +94,7 @@ describe('Import Routes', () => {
       { project_id: 'PRJ2', land_area_hectares: '20' }
     ]);
     prisma.project.upsert.mockResolvedValue({});
-    prisma.importHistory.create.mockResolvedValue({ id: 1 });
+    prisma.importHistory.create.mockResolvedValue({ id: 1, successful_rows: 2 });
 
     const res = await request(app)
       .post('/api/v1/imports/projects')

@@ -4,7 +4,7 @@
  */
 const rateLimit = require('express-rate-limit');
 
-module.exports = rateLimit({
+const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // 20 requests per IP per window
   standardHeaders: true,
@@ -17,3 +17,10 @@ module.exports = rateLimit({
     });
   },
 });
+
+module.exports = (req, res, next) => {
+  if (process.env.NODE_ENV === 'test') {
+    return next();
+  }
+  return limiter(req, res, next);
+};

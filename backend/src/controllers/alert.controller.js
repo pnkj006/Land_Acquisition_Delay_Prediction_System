@@ -1,5 +1,5 @@
 /**
- * @fileoverview Alert Controller
+ * @fileoverview Alert Controller — passes req.user for scope filtering.
  */
 const alertService = require('../services/alert.service');
 const { sendSuccess, sendError } = require('../utils/response');
@@ -10,10 +10,10 @@ exports.getAlerts = async (req, res, next) => {
     const { page, limit, skip } = getPagination(req.query);
     const filters = {
       severity: req.query.severity,
-      isRead: req.query.isRead
+      isRead: req.query.isRead,
     };
 
-    const result = await alertService.getAlerts(req.user.id, req.user.role, filters, page, limit, skip);
+    const result = await alertService.getAlerts(req.user, filters, page, limit, skip);
     const meta = paginationMeta(result.total, page, limit);
 
     return sendSuccess(res, { items: result.items, meta });
@@ -29,7 +29,7 @@ exports.markRead = async (req, res, next) => {
       return sendError(res, 'Invalid alert ID', 'INVALID_PARAM', 400);
     }
 
-    const updatedAlert = await alertService.markRead(alertId, req.user.id, req.user.role);
+    const updatedAlert = await alertService.markRead(alertId, req.user);
     return sendSuccess(res, updatedAlert);
   } catch (error) {
     next(error);
@@ -38,7 +38,7 @@ exports.markRead = async (req, res, next) => {
 
 exports.markAllRead = async (req, res, next) => {
   try {
-    const result = await alertService.markAllRead(req.user.id, req.user.role);
+    const result = await alertService.markAllRead(req.user);
     return sendSuccess(res, result);
   } catch (error) {
     next(error);

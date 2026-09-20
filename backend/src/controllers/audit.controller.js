@@ -10,7 +10,8 @@ exports.getAuditLogs = async (req, res, next) => {
     const { page, limit, skip } = getPagination(req.query);
     const filters = {
       userId: req.query.userId,
-      projectId: req.query.projectId,
+      resource: req.query.resource,
+      resourceId: req.query.resourceId,
       action: req.query.action
     };
 

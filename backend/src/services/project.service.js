@@ -1,28 +1,19 @@
 /**
  * @fileoverview Project Service
- * Handles CRUD, filtering, pagination, and role-based scoping for projects.
+ * Handles CRUD, filtering, pagination, and RBAC scope-based filtering.
+ * §4, §5.4, §7.6 of the RBAC V7 plan.
  */
 const prisma = require('../config/database');
 const logger = require('../config/logger');
-const auditService = require('./audit.service');
-
-/**
- * Resolves a :projectId route param to a Prisma `where` clause.
- * Accepts either the numeric primary key `id` or the business `project_id` string.
- */
+const { projectScopeWhere, assertProjectInScope } = require('../utils/scope');
 const { resolveProjectWhere } = require('../utils/resolveProject');
 
 /**
  * Builds the Prisma `where` clause for a project list query,
- * applying role-based scoping and all supported filters.
+ * applying RBAC scope and all supported filters.
  */
 function buildListWhere(user, filters) {
-  const where = {};
-
-  // Role-based scoping: PMs only ever see their own assigned projects
-  if (user.role === 'PROJECT_MANAGER') {
-    where.project_manager_id = user.id;
-  }
+  const where = projectScopeWhere(user);
 
   if (filters.search) {
     where.OR = [
@@ -33,12 +24,7 @@ function buildListWhere(user, filters) {
   if (filters.state) where.state = filters.state;
   if (filters.district) where.district = filters.district;
   if (filters.projectType) where.project_type = filters.projectType;
-  if (filters.managerId) where.project_manager_id = parseInt(filters.managerId, 10);
 
-  // riskLevel filters on the *current* risk score range, since risk_level
-  // itself lives on risk_predictions, not projects. We approximate via
-  // the denormalized risk_score column on projects (kept in sync by
-  // whoever owns ML integration writing predictions back).
   if (filters.riskLevel === 'HIGH') where.risk_score = { gte: 0.7 };
   else if (filters.riskLevel === 'MEDIUM') where.risk_score = { gte: 0.4, lt: 0.7 };
   else if (filters.riskLevel === 'LOW') where.risk_score = { lt: 0.4 };
@@ -61,7 +47,7 @@ function buildOrderBy(sortBy, sortOrder) {
 
 /**
  * listProjects(user, filters, page, limit, skip)
- * Returns { items, total }
+ * Returns { items, total } — silently scope-filtered.
  */
 exports.listProjects = async (user, filters, page, limit, skip) => {
   const where = buildListWhere(user, filters);
@@ -73,9 +59,6 @@ exports.listProjects = async (user, filters, page, limit, skip) => {
       skip,
       take: limit,
       orderBy,
-      include: {
-        project_manager: { select: { id: true, name: true, email: true } },
-      },
     }),
     prisma.project.count({ where }),
   ]);
@@ -85,17 +68,14 @@ exports.listProjects = async (user, filters, page, limit, skip) => {
 
 /**
  * getProjectById(projectIdParam, user)
- * Throws 404 if not found, 403 if a PM tries to access a project not theirs.
+ * 404 if not found or out of scope (identical response per §5.5).
  */
 exports.getProjectById = async (projectIdParam, user) => {
   const where = resolveProjectWhere(projectIdParam);
+  const scopeWhere = projectScopeWhere(user);
 
-  const project = await prisma.project.findUnique({
-    where,
-    include: {
-      project_manager: { select: { id: true, name: true, email: true } },
-      administrator: { select: { id: true, name: true, email: true } },
-    },
+  const project = await prisma.project.findFirst({
+    where: { ...where, ...scopeWhere },
   });
 
   if (!project) {
@@ -105,23 +85,22 @@ exports.getProjectById = async (projectIdParam, user) => {
     throw err;
   }
 
-  if (user.role === 'PROJECT_MANAGER' && project.project_manager_id !== user.id) {
-    const err = new Error('You do not have access to this project');
-    err.statusCode = 403;
-    err.code = 'FORBIDDEN';
-    throw err;
-  }
-
   return project;
 };
 
 /**
- * createProject(data, actorUserId)
+ * createProject(data, actor)
+ * Requires scope 'all' (enforced by authorize at route level).
  * Throws 409 if project_id already exists.
  */
-exports.createProject = async (data, actorUserId) => {
+exports.createProject = async (data, actor) => {
+  // Normalize external code
+  const projectId = data.project_id
+    ? data.project_id.trim().toUpperCase()
+    : data.project_id;
+
   const existing = await prisma.project.findUnique({
-    where: { project_id: data.project_id },
+    where: { project_id: projectId },
   });
 
   if (existing) {
@@ -131,23 +110,29 @@ exports.createProject = async (data, actorUserId) => {
     throw err;
   }
 
-  const project = await prisma.project.create({ data });
-
-  await auditService.log(actorUserId, 'CREATE_PROJECT', project.id, {
-    project_id: project.project_id,
+  // Strip fields that no longer exist post-migration-2 from body
+  const { administrator_id, project_manager_id, ...rest } = data;
+  const project = await prisma.project.create({
+    data: { ...rest, project_id: projectId },
   });
 
-  logger.info(`Project created: ${project.project_id}`);
+  logger.info(`Project created: ${project.project_id} by user ${actor.id}`);
   return project;
 };
 
 /**
- * updateProject(projectIdParam, data, actorUserId)
+ * updateProject(projectIdParam, data, user)
+ * Scope-checked first — 404 if not found or out of scope.
  */
-exports.updateProject = async (projectIdParam, data, actorUserId) => {
+exports.updateProject = async (projectIdParam, data, user) => {
   const where = resolveProjectWhere(projectIdParam);
 
-  const existing = await prisma.project.findUnique({ where });
+  // Find project respecting scope
+  const scopeWhere = projectScopeWhere(user);
+  const existing = await prisma.project.findFirst({
+    where: { ...where, ...scopeWhere },
+  });
+
   if (!existing) {
     const err = new Error('Project not found');
     err.statusCode = 404;
@@ -155,84 +140,14 @@ exports.updateProject = async (projectIdParam, data, actorUserId) => {
     throw err;
   }
 
-  const updated = await prisma.project.update({ where, data });
-
-  await auditService.log(actorUserId, 'UPDATE_PROJECT', updated.id, {
-    project_id: updated.project_id,
-    changedFields: Object.keys(data),
-  });
-
-  logger.info(`Project updated: ${updated.project_id}`);
-  return updated;
-};
-
-/**
- * deleteProject(projectIdParam, actorUserId)
- */
-exports.deleteProject = async (projectIdParam, actorUserId) => {
-  const where = resolveProjectWhere(projectIdParam);
-
-  const existing = await prisma.project.findUnique({ where });
-  if (!existing) {
-    const err = new Error('Project not found');
-    err.statusCode = 404;
-    err.code = 'PROJECT_NOT_FOUND';
-    throw err;
-  }
-
-  await prisma.project.delete({ where });
-
-  await auditService.log(actorUserId, 'DELETE_PROJECT', existing.id, {
-    project_id: existing.project_id,
-  });
-
-  logger.info(`Project deleted: ${existing.project_id}`);
-  return { id: existing.id, project_id: existing.project_id };
-};
-
-/**
- * assignManager(projectIdParam, project_manager_id, actorUserId)
- * Validates the target user exists and actually has the PROJECT_MANAGER role.
- */
-exports.assignManager = async (projectIdParam, project_manager_id, actorUserId) => {
-  const where = resolveProjectWhere(projectIdParam);
-
-  const project = await prisma.project.findUnique({ where });
-  if (!project) {
-    const err = new Error('Project not found');
-    err.statusCode = 404;
-    err.code = 'PROJECT_NOT_FOUND';
-    throw err;
-  }
-
-  const manager = await prisma.user.findUnique({ where: { id: project_manager_id } });
-  if (!manager) {
-    const err = new Error('Specified manager user does not exist');
-    err.statusCode = 404;
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-  if (manager.role !== 'PROJECT_MANAGER') {
-    const err = new Error('Specified user is not a Project Manager');
-    err.statusCode = 400;
-    err.code = 'VALIDATION_ERROR';
-    throw err;
-  }
+  // Strip removed fields from the update body
+  const { administrator_id, project_manager_id, ...updateData } = data;
 
   const updated = await prisma.project.update({
-    where,
-    data: {
-      project_manager_id: manager.id,
-      manager: manager.name,
-    },
+    where: { id: existing.id },
+    data: updateData,
   });
 
-  await auditService.log(actorUserId, 'ASSIGN_MANAGER', updated.id, {
-    project_id: updated.project_id,
-    assigned_manager_id: manager.id,
-    assigned_manager_name: manager.name,
-  });
-
-  logger.info(`Manager assigned to ${updated.project_id}: ${manager.name}`);
+  logger.info(`Project updated: ${updated.project_id} by user ${user.id}`);
   return updated;
 };
