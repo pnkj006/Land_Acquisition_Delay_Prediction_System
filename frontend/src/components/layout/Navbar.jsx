@@ -4,7 +4,7 @@ import { useNotifications } from '../../context/NotificationContext'
 import { useAuth } from '../../context/AuthContext.jsx'
 import logo from '../../assets/images/logo.png'
 
-export default function Navbar({ onOpenMobile }) {
+export default function Navbar({ onOpenMobile, searchPlaceholder = 'Search project, district, document...' }) {
   const { unreadCount, markAllRead, notifications, timeAgo } = useNotifications()
   const { user } = useAuth()
   const [search, setSearch] = useState('')
@@ -33,20 +33,19 @@ export default function Navbar({ onOpenMobile }) {
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Brand — government emblem + product name + tagline */}
+        {/* Brand — logo + product name + tagline */}
         <div className="flex min-w-0 items-center gap-3">
           <img
             src={logo}
-            alt="Ministry of Rural Development — Department of Land Resources emblem"
+            alt="SANKET system logo"
             draggable={false}
             className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-gray-200"
           />
           <div className="hidden min-w-0 sm:block">
             <p className="truncate text-sm font-bold leading-tight text-gray-900">
-              Land Acquisition <span className="font-medium text-gray-300">|</span>{' '}
-              <span className="text-primary-700">Delay Monitoring System</span>
+              SANKET
             </p>
-            <p className="truncate text-[11px] font-medium text-gray-500">Predict • Analyse • Act Early</p>
+            <p className="truncate text-[11px] font-medium text-gray-500">Land Acquisition Delay Predictor</p>
           </div>
         </div>
 
@@ -55,7 +54,7 @@ export default function Navbar({ onOpenMobile }) {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search project, district, document..."
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-xs text-gray-800 placeholder-gray-400 transition-colors focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/25"

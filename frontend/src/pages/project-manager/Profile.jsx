@@ -37,7 +37,7 @@ export default function Profile() {
             <Input label="Phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} placeholder={editing ? 'Add phone number' : 'Not available'} readOnly={!editing} className={!editing ? 'bg-gray-50' : ''} />
             <Input label="Role" value={user?.role || 'Not available'} readOnly className="bg-gray-50" />
             <Input label="District" value={user?.district || 'Not available'} readOnly className="bg-gray-50" />
-            <Input label="Organization" value="Department of Land Resources" readOnly className="bg-gray-50" />
+            <Input label="Organization" value="Not available" readOnly className="bg-gray-50" />
           </div>
           {editing ? <p className="mt-3 text-xs text-gray-500">This frontend has no profile API; saved edits are retained only until the current session ends.</p> : null}
         </section>

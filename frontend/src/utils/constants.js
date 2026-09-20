@@ -64,3 +64,19 @@ export const NAV_ITEMS = [
   { key: 'profile', label: 'Profile', icon: 'User', path: '/profile' },
   { key: 'settings', label: 'Settings', icon: 'Settings', path: '/settings' },
 ]
+
+/** Admin shell navigation — separate from Project Manager NAV_ITEMS. */
+export const ADMIN_NAV_ITEMS = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard', path: '/admin/dashboard' },
+  { key: 'projects', label: 'All Projects', icon: 'FolderKanban', path: '/admin/projects' },
+  { key: 'project-managers', label: 'Project Managers', icon: 'Users', path: '/admin/project-managers' },
+  { key: 'districts', label: 'Districts', icon: 'MapPin', path: '/admin/districts' },
+  { key: 'risk-analysis', label: 'Risk Analysis', icon: 'AlertTriangle', path: '/admin/risk-analysis' },
+  { key: 'field-updates', label: 'Field Updates', icon: 'ClipboardList', path: '/admin/field-updates' },
+  { key: 'alerts', label: 'Alerts', icon: 'Bell', path: '/admin/alerts' },
+  { key: 'recommendations', label: 'Recommendations', icon: 'Lightbulb', path: '/admin/recommendations' },
+  { key: 'reports', label: 'Reports', icon: 'FileBarChart', path: '/admin/reports' },
+  { key: 'system-activity', label: 'System Activity', icon: 'Activity', path: '/admin/system-activity' },
+  { key: 'profile', label: 'Profile', icon: 'User', path: '/admin/profile' },
+  { key: 'settings', label: 'Settings', icon: 'Settings', path: '/admin/settings' },
+]

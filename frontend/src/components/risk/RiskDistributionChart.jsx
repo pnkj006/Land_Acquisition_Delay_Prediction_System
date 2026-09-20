@@ -18,7 +18,7 @@ const LEVELS = [RISK_LEVELS.HIGH, RISK_LEVELS.MEDIUM, RISK_LEVELS.LOW]
  * from the shared RISK_META palette (High = red, Medium = amber, Low = green)
  * — the same colors used by risk badges and the map markers.
  */
-export default function RiskDistributionChart({ stats }) {
+export default function RiskDistributionChart({ stats, title = 'Risk Distribution', subtitle = 'Filtered projects by predicted risk level' }) {
   const total = stats.total
   const data = LEVELS.map((level) => ({
     level,
@@ -29,8 +29,8 @@ export default function RiskDistributionChart({ stats }) {
   return (
     <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="mb-2">
-        <h3 className="text-sm font-semibold text-gray-800">Risk Distribution</h3>
-        <p className="text-[11px] text-gray-400">Filtered projects by predicted risk level</p>
+        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+        <p className="text-[11px] text-gray-400">{subtitle}</p>
       </div>
 
       {total === 0 ? (

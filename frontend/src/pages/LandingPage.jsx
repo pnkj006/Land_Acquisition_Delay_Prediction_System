@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import Button from '../components/common/Button.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import logo from '../assets/images/logo.png'
 import heroImage from '../assets/images/hero-land.jpg'
 
@@ -95,8 +96,8 @@ function Navbar({ onDashboard }) {
         <a href="#top" className="flex items-center gap-2.5" onClick={(e) => { e.preventDefault(); go('top') }}>
           <img src={logo} alt="System logo" className="h-9 w-9 rounded-lg" />
           <span className="leading-tight">
-            <span className="block text-[13px] font-bold text-primary">Land Acquisition</span>
-            <span className="block text-[13px] font-bold text-gray-700">Delay Monitoring System</span>
+            <span className="block text-[13px] font-bold text-primary">SANKET</span>
+            <span className="block text-[10px] font-medium text-gray-500">Land Acquisition Delay Predictor</span>
           </span>
         </a>
         <ul className="hidden items-center gap-6 text-[13px] font-medium text-gray-600 lg:flex">
@@ -531,11 +532,10 @@ function Footer() {
           <div className="flex items-center gap-2.5">
             <img src={logo} alt="" className="h-9 w-9 rounded-lg" />
             <p className="leading-tight">
-              <span className="block text-sm font-bold text-white">Land Acquisition</span>
-              <span className="block text-sm font-bold text-white">Delay Monitoring System</span>
+              <span className="block text-sm font-bold text-white">SANKET</span>
             </p>
           </div>
-          <p className="mt-3 text-xs">Predict · Analyse · Act Early</p>
+          <p className="mt-3 text-xs">Land Acquisition Delay Predictor</p>
         </div>
         <ul className="flex flex-wrap gap-x-5 gap-y-2 text-xs">
           {['Privacy Policy', 'Terms of Use', 'Accessibility', 'Sitemap', 'Contact'].map((label) => (
@@ -551,6 +551,16 @@ function Footer() {
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  const { user, isAuthenticated } = useAuth()
+  // Routing-only: keep an already-signed-in Administrator inside the Admin
+  // namespace; PMs keep the existing /dashboard destination. No UI change.
+  const handleDashboard = () => {
+    if (isAuthenticated && (user?.roleKey === 'admin' || user?.role === 'Administrator')) {
+      navigate('/admin/dashboard')
+    } else {
+      navigate('/dashboard')
+    }
+  }
   return (
     <div id="top" className="min-h-screen bg-white font-sans text-gray-800">
       <a
@@ -560,9 +570,9 @@ export default function LandingPage() {
         Skip to main content
       </a>
       <UtilityBar />
-      <Navbar onDashboard={() => navigate('/dashboard')} />
+      <Navbar onDashboard={handleDashboard} />
       <main id="main-content">
-        <Hero onDashboard={() => navigate('/dashboard')} />
+        <Hero onDashboard={handleDashboard} />
         <CapabilityStrip />
         <Features />
         <HowItWorks />

@@ -48,7 +48,7 @@ export default function SignupForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
       <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center"><img src={logo} alt="Land Acquisition Delay Monitoring System logo" className="mx-auto h-12 w-auto object-contain" /><h1 className="text-base font-bold text-gray-800">Create your account</h1><p className="text-xs text-gray-500">Register to access the Land Acquisition Delay Monitoring System.</p></div>
+        <div className="mb-6 flex flex-col items-center gap-2 text-center"><img src={logo} alt="SANKET logo" className="mx-auto h-12 w-auto object-contain" /><h1 className="text-base font-bold text-gray-800">Create your account</h1><p className="text-xs text-gray-500">Land Acquisition Delay Predictor</p></div>
         <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           <Input label="Full Name" name="name" autoComplete="name" value={form.name} onChange={(event) => updateField('name', event.target.value)} error={errors.name} aria-invalid={Boolean(errors.name)} />
           <Input label="Email Address" type="email" name="email" autoComplete="email" value={form.email} onChange={(event) => updateField('email', event.target.value)} error={errors.email} aria-invalid={Boolean(errors.email)} />
