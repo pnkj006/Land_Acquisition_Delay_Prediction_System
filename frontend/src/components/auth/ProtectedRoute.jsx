@@ -17,7 +17,11 @@ export default function ProtectedRoute({ children, requiredPermission }) {
  */
 export default function ProtectedRoute({ children, roles }) {
   const { user, isAuthenticated, loading } = useAuth()
+<<<<<<< HEAD
 >>>>>>> origin/admin-dashboard
+=======
+>>>>>>> 584dfbe (Add admin pages and update SANKET branding)
+>>>>>>> ac465b9fcc447332bbf2b263ec28e795ec440c9e
 
   if (loading) {
     return (
@@ -54,7 +58,11 @@ export default function ProtectedRoute({ children, roles }) {
       }
       // PM session on an admin-only route → PM home (never the admin dashboard).
       return <Navigate to="/dashboard" replace />
+<<<<<<< HEAD
 >>>>>>> origin/admin-dashboard
+=======
+>>>>>>> 584dfbe (Add admin pages and update SANKET branding)
+>>>>>>> ac465b9fcc447332bbf2b263ec28e795ec440c9e
     }
   }
 

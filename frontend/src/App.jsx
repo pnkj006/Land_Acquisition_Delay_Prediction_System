@@ -25,7 +25,7 @@ import UserDetailPage from './pages/admin/UserDetailPage.jsx'
 // Global Utilities & Auth Shells
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import LoginForm from './components/auth/LoginForm.jsx'
-import SignupForm from './components/auth/SignupForm.jsx' // Brought in from incoming branch
+import SignupForm from './components/auth/SignupForm.jsx'
 import NotFound from './pages/NotFound.jsx'
 import { SidebarProvider } from './context/SidebarContext.jsx'
 
@@ -38,7 +38,7 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/signup" element={<SignupForm />} />
 
-        {/* Root Redirect Hook */}
+        {/* Global Navigation Hooks */}
         <Route path="/dashboard" element={<Navigate to="/project-manager/dashboard" replace />} />
 
         {/* Project Manager Workspace */}
@@ -181,7 +181,7 @@ function App() {
           }
         />
 
-        {/* Admin Shared Viewport References */}
+        {/* Admin Explicit Shared Layout Mappings */}
         <Route
           path="/admin/projects/:projectId"
           element={
@@ -247,7 +247,7 @@ function App() {
           }
         />
 
-        {/* Catch-all Global Error Boundaries */}
+        {/* Global Fallback Handler */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </SidebarProvider>

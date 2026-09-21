@@ -38,7 +38,11 @@ function isAdminUser(user) {
  * admin sidebar — regardless of URL.
  */
 export default function DashboardLayout({ activeKey, adminActiveKey, children, watermarkClassName = '' }) {
+<<<<<<< HEAD
 >>>>>>> origin/admin-dashboard
+=======
+>>>>>>> 584dfbe (Add admin pages and update SANKET branding)
+>>>>>>> ac465b9fcc447332bbf2b263ec28e795ec440c9e
   // Collapsed state lives in SidebarProvider (mounted in App) so it persists across route changes
   const { collapsed, toggleCollapsed } = useSidebar()
   // Real unread alert count (NotificationContext is mounted at App level),
