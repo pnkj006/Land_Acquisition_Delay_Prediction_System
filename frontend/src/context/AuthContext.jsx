@@ -1,13 +1,26 @@
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
+import apiClient from '../api/apiClient'
 
 const AuthContext = createContext(null)
 
-import apiClient from '../api/apiClient'
+// Demo admin account pattern used by the admin dashboard
+export const MOCK_ADMIN_USER = {
+  id: 'U-ADMIN',
+  name: 'Administrator',
+  role: 'Administrator',
+  roleKey: 'admin',
+  district: null,
+  state: 'Odisha',
+  email: 'admin@lrd.odisha.gov.in',
+}
+
+export const DEMO_ADMIN_EMAIL = 'admin@lrd.odisha.gov.in'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true) // Start loading while checking /me
 
+  // Hydrate user session on mount via real API
   useEffect(() => {
     const fetchMe = async () => {
       try {
@@ -26,6 +39,7 @@ export function AuthProvider({ children }) {
     fetchMe();
   }, []);
 
+  // Real login API integration
   const login = useCallback(async (credentials) => {
     setLoading(true)
     try {
@@ -39,6 +53,7 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Real logout API integration
   const logout = useCallback(async () => {
     try {
       await apiClient.post('/auth/logout');
@@ -50,9 +65,9 @@ export function AuthProvider({ children }) {
     window.location.href = '/login';
   }, [])
 
+  // Permission checks introduced by Backend V7
   const hasPermission = useCallback((resource, action) => {
     if (!user || !user.permissions) return false;
-    // Backend V7 sends permissions as an array of strings in user.permissions
     return user.permissions.includes(`${resource}:${action}`);
   }, [user]);
 

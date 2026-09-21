@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import {
+  Activity,
   AlertTriangle,
   Bell,
   ClipboardList,
@@ -7,34 +8,45 @@ import {
   FolderKanban,
   LayoutDashboard,
   Lightbulb,
-  Map,
+  MapPin,
   Menu,
-  MessageSquare,
   PanelLeftClose,
   Settings,
   User,
+  Users,
 } from 'lucide-react'
-import { NAV_ITEMS } from '../../utils/constants'
+import { ADMIN_NAV_ITEMS } from '../../utils/constants'
 import logo from '../../assets/images/logo.png'
 
 const ICONS = {
   LayoutDashboard,
   FolderKanban,
-  Map,
+  Users,
+  MapPin,
   AlertTriangle,
   ClipboardList,
   Lightbulb,
   Bell,
   FileBarChart,
-  MessageSquare,
+  Activity,
   User,
   Settings,
 }
 
-export default function Sidebar({ activeKey = 'dashboard', collapsed = false, onToggle, alertsBadgeCount = 0, mobileOpen = false, onCloseMobile }) {
+/**
+ * Admin-only navigation rail. Mirrors the existing Sidebar visual language
+ * but uses ADMIN_NAV_ITEMS so the Project Manager sidebar stays untouched.
+ */
+export default function AdminSidebar({
+  activeKey = 'dashboard',
+  collapsed = false,
+  onToggle,
+  alertsBadgeCount = 0,
+  mobileOpen = false,
+  onCloseMobile,
+}) {
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen ? (
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onCloseMobile} />
       ) : null}
@@ -44,10 +56,6 @@ export default function Sidebar({ activeKey = 'dashboard', collapsed = false, on
           collapsed ? 'w-16' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* Brand — expanded: logo + text · collapsed: hamburger toggle.
-            Branches are strictly conditional so the logo/text never render
-            squeezed inside the narrow rail; both branches share the same
-            height (py-4 + h-11) so the divider/nav below don't jump. */}
         {collapsed ? (
           <div className="flex animate-fade-in justify-center py-4">
             <button
@@ -77,15 +85,13 @@ export default function Sidebar({ activeKey = 'dashboard', collapsed = false, on
 
         <div className="mx-4 border-t border-white/10" />
 
-        {/* Section label (expanded only) */}
         {!collapsed ? (
-          <p className="px-5 pb-1 pt-3.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Menu</p>
+          <p className="px-5 pb-1 pt-3.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">Admin Menu</p>
         ) : null}
 
-        {/* Nav — paths come from NAV_ITEMS (unchanged destinations) */}
         <nav className="scrollbar-thin flex-1 overflow-y-auto px-2.5 py-2">
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((item) => {
+            {ADMIN_NAV_ITEMS.map((item) => {
               const Icon = ICONS[item.icon]
               const isActive = item.key === activeKey
               const isAlerts = item.key === 'alerts'
@@ -122,26 +128,6 @@ export default function Sidebar({ activeKey = 'dashboard', collapsed = false, on
           </ul>
         </nav>
 
-        {/* Bottom decorative */}
-        {!collapsed ? (
-          <div className="border-t border-white/10 px-4 py-4">
-            <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/[0.03] p-3">
-              <div className="mb-2.5 flex items-end justify-center gap-1.5">
-                <span className="inline-block h-4 w-1.5 rounded-sm bg-green-400/70" />
-                <span className="inline-block h-7 w-1.5 rounded-sm bg-accent-light/80" />
-                <span className="inline-block h-10 w-1.5 rounded-sm bg-white/40" />
-                <span className="inline-block h-6 w-1.5 rounded-sm bg-green-400/70" />
-              </div>
-              <p className="text-center text-xs font-bold leading-snug text-white/90">Smarter Decisions</p>
-              <p className="text-center text-[10px] leading-snug text-white/55">for Faster Land Acquisition</p>
-            </div>
-            <p className="mt-2.5 text-center text-[9px] italic leading-snug text-white/40">
-              "Timely Land Today, Stronger Infrastructure Tomorrow"
-            </p>
-          </div>
-        ) : null}
-
-        {/* Collapse toggle (desktop, expanded only — the top hamburger is the single toggle when collapsed) */}
         {!collapsed ? (
           <button
             type="button"
