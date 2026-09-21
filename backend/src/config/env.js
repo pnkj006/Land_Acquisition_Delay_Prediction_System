@@ -19,4 +19,7 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',
   ML_SERVICE_URL: process.env.ML_SERVICE_URL || 'http://localhost:8000',
+  // When false (default), POST /auth/signup returns 404 and the frontend hides the link.
+  // Admins create users via POST /users. Set to 'true' only in dev/testing.
+  ALLOW_PUBLIC_SIGNUP: process.env.ALLOW_PUBLIC_SIGNUP === 'true',
 };

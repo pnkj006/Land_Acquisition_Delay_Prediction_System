@@ -1,38 +1,31 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logo from '../../assets/images/logo.png'
-import { DEMO_ADMIN_EMAIL, useAuth } from '../../context/AuthContext.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import Input from '../common/Input.jsx'
-import Select from '../common/Select.jsx'
 import Button from '../common/Button.jsx'
-
-const PM_DEMO_EMAIL = 'rakesh.patnaik@lrd.odisha.gov.in'
 
 export default function LoginForm() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [role, setRole] = useState('project-manager')
-  const [email, setEmail] = useState(PM_DEMO_EMAIL)
-  const [password, setPassword] = useState('demo-password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  const handleRoleChange = (event) => {
-    const nextRole = event.target.value
-    setRole(nextRole)
-    setEmail(nextRole === 'admin' ? DEMO_ADMIN_EMAIL : PM_DEMO_EMAIL)
-  }
+  const [error, setError] = useState('')
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setSubmitting(true)
+    setError('')
     try {
-      const signedIn = await login({ email, password, role })
-      const isAdmin = signedIn?.roleKey === 'admin' || signedIn?.role === 'Administrator'
+      const signedIn = await login({ email, password })
+      const isAdmin = signedIn?.role === 'ADMIN'
 
       // Redirect based on backend evaluation parameters
       navigate(isAdmin ? '/admin/dashboard' : '/project-manager/dashboard', { replace: true })
-    } catch (error) {
-      console.error("Login failure: ", error)
+    } catch (err) {
+      console.error("Login failure: ", err)
+      setError(err?.response?.data?.message || 'Invalid email or password')
     } finally {
       setSubmitting(false)
     }
@@ -48,16 +41,6 @@ export default function LoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Select
-            label="Login as"
-            name="role"
-            value={role}
-            onChange={handleRoleChange}
-            options={[
-              { value: 'project-manager', label: 'Project Manager' },
-              { value: 'admin', label: 'Administrator' },
-            ]}
-          />
           <Input
             label="Official Email"
             type="email"
@@ -65,6 +48,7 @@ export default function LoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            autoComplete="email"
           />
           <Input
             label="Password"
@@ -73,17 +57,15 @@ export default function LoginForm() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            autoComplete="current-password"
           />
+          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
           <Button type="submit" fullWidth disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign In'}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-[10px] text-gray-400">
-          Demo build — authentication is mocked. Use the pre-filled Project Manager account, or{' '}
-          <span className="font-medium text-gray-500">admin@lrd.odisha.gov.in</span> / demo-password for Administrator.
-        </p>
-        <p className="mt-3 text-center text-xs text-gray-500">
+        <p className="mt-4 text-center text-xs text-gray-500">
           Don't have an account? <Link to="/signup" className="font-medium text-accent hover:text-accent-dark">Sign Up</Link>
         </p>
       </div>

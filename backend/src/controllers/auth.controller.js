@@ -32,9 +32,14 @@ async function me(req, res, next) {
 }
 
 async function signup(req, res, next) {
+  const { ALLOW_PUBLIC_SIGNUP } = require('../config/env');
+  if (!ALLOW_PUBLIC_SIGNUP) {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
   try {
     const data = req.body;
-    // Default role to USER if not provided (or handle based on your system's defaults)
+    // Force role to least privileged to prevent privilege escalation via public signup
+    data.role = 'STAFF';
     const result = await authService.signup(data);
     return sendSuccess(res, result, 'Signup successful', 201);
   } catch (err) {

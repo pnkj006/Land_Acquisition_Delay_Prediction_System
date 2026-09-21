@@ -113,6 +113,30 @@ describe('Auth Endpoints', () => {
     });
   });
 
+  describe('POST /api/v1/auth/signup', () => {
+    it('forces role to STAFF and ignores user input', async () => {
+      // We mock the user service to avoid DB transactions in unit tests
+      const userService = require('../src/services/user.service');
+      jest.spyOn(userService, 'createUser').mockResolvedValue({
+        id: 2,
+        email: 'hacker@example.com',
+        role: 'STAFF', // It should be STAFF because the controller overrides it
+        name: 'Hacker'
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/signup')
+        .send({ email: 'hacker@example.com', password: 'password123', role: 'ADMIN' });
+
+      expect(res.status).toBe(201);
+      expect(userService.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'STAFF' })
+      );
+      
+      userService.createUser.mockRestore();
+    });
+  });
+
   describe('GET /api/v1/auth/me', () => {
     it('with valid token: returns 200 + user', async () => {
       prisma.user.findUnique.mockResolvedValue({

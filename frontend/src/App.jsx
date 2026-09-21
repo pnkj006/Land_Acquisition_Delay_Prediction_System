@@ -135,7 +135,7 @@ function App() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['users', 'read']}>
               <AdminDashboard />
             </ProtectedRoute>
           }
@@ -143,7 +143,7 @@ function App() {
         <Route
           path="/admin/projects"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['projects', 'read']}>
               <AllProjects />
             </ProtectedRoute>
           }
@@ -151,7 +151,7 @@ function App() {
         <Route
           path="/admin/project-managers"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['users', 'read']}>
               <ProjectManagers />
             </ProtectedRoute>
           }
@@ -159,7 +159,7 @@ function App() {
         <Route
           path="/admin/districts"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['projects', 'read']}>
               <AdminDistricts />
             </ProtectedRoute>
           }
@@ -167,7 +167,7 @@ function App() {
         <Route
           path="/admin/system-activity"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['audit_logs', 'read']}>
               <AdminSystemActivity />
             </ProtectedRoute>
           }
@@ -185,7 +185,7 @@ function App() {
         <Route
           path="/admin/projects/:projectId"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['projects', 'read']}>
               <ProjectDetails />
             </ProtectedRoute>
           }
@@ -193,7 +193,7 @@ function App() {
         <Route
           path="/admin/risk-analysis"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['predictions', 'read']}>
               <RiskAnalysis />
             </ProtectedRoute>
           }
@@ -201,7 +201,7 @@ function App() {
         <Route
           path="/admin/field-updates"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['stages_events', 'read']}>
               <FieldUpdates />
             </ProtectedRoute>
           }
@@ -209,7 +209,7 @@ function App() {
         <Route
           path="/admin/alerts"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['alerts', 'read']}>
               <Alerts />
             </ProtectedRoute>
           }
@@ -217,7 +217,7 @@ function App() {
         <Route
           path="/admin/recommendations"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['recommendations', 'read']}>
               <Recommendations />
             </ProtectedRoute>
           }
@@ -225,7 +225,7 @@ function App() {
         <Route
           path="/admin/reports"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['projects', 'read']}>
               <Reports />
             </ProtectedRoute>
           }
@@ -233,7 +233,7 @@ function App() {
         <Route
           path="/admin/profile"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['users', 'read']}>
               <Profile />
             </ProtectedRoute>
           }
@@ -241,7 +241,7 @@ function App() {
         <Route
           path="/admin/settings"
           element={
-            <ProtectedRoute requiredPermission={['admin', 'read']}>
+            <ProtectedRoute requiredPermission={['users', 'read']}>
               <Settings />
             </ProtectedRoute>
           }

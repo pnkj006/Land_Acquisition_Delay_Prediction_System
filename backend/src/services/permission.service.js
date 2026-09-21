@@ -82,6 +82,18 @@ async function setUserPermissions(actor, targetUserId, newGrants) {
     throw err;
   }
 
+  // Hard block: permissions that manage users or permissions can never be granted via this endpoint.
+  // These are ADMIN-role defaults and must not be delegatable.
+  const NEVER_GRANTABLE = new Set(['users:write', 'users:delete', 'users:read', 'assignments:write', 'assignments:delete']);
+  for (const g of newGrants) {
+    const key = `${g.resource}:${g.action}`;
+    if (NEVER_GRANTABLE.has(key)) {
+      const err = new Error(`Permission ${key} cannot be granted via this endpoint`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
   const allowed = allowlist[target.role] || new Set();
   const defaults = roleDefaults[target.role] || new Set();
 

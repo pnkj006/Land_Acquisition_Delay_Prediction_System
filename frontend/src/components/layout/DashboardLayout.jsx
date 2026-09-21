@@ -7,9 +7,6 @@ import { useSidebar } from '../../context/SidebarContext.jsx'
 import { useNotifications } from '../../context/NotificationContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 
-<<<<<<< HEAD
-export default function DashboardLayout({ activeKey, children }) {
-=======
 const PM_TO_ADMIN_KEY = {
   dashboard: 'dashboard',
   'my-projects': 'projects',
@@ -31,22 +28,17 @@ function isAdminUser(user) {
 }
 
 /**
- * Routing shell selector (no visual changes).
+ * Routing shell selector.
  * Administrator sessions render AdminSidebar; Project Manager sessions render
  * the existing PM Sidebar exactly as before. Shared pages keep using this
  * layout so an admin never sees the PM sidebar, and a PM never sees the
  * admin sidebar — regardless of URL.
  */
 export default function DashboardLayout({ activeKey, adminActiveKey, children, watermarkClassName = '' }) {
-<<<<<<< HEAD
->>>>>>> origin/admin-dashboard
-=======
->>>>>>> 584dfbe (Add admin pages and update SANKET branding)
->>>>>>> ac465b9fcc447332bbf2b263ec28e795ec440c9e
   // Collapsed state lives in SidebarProvider (mounted in App) so it persists across route changes
   const { collapsed, toggleCollapsed } = useSidebar()
   // Real unread alert count (NotificationContext is mounted at App level),
-  // shown on the sidebar Alerts item — the badge was previously hardcoded to 0.
+  // shown on the sidebar Alerts item.
   const { unreadCount } = useNotifications()
   const { user } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)

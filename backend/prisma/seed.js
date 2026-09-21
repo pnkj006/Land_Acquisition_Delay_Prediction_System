@@ -23,7 +23,10 @@ const SALT_ROUNDS = 10;
 
 async function main() {
   // ─── Users ───────────────────────────────────────────────────────────────
-  const adminPassword    = process.env.SEED_ADMIN_PASSWORD    || 'Admin@123';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error('SEED_ADMIN_PASSWORD environment variable must be set. Please set it and remember to change the admin password after first login.');
+  }
   const pmPassword       = process.env.SEED_PM_PASSWORD       || 'Pm@12345';
   const officialPassword = process.env.SEED_OFFICIAL_PASSWORD || 'Official@1';
   const staffPassword    = process.env.SEED_STAFF_PASSWORD    || 'Staff@123';

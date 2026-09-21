@@ -19,6 +19,7 @@ async function login(email, password) {
   try {
     const user = await prisma.user.findUnique({
       where: { email },
+      include: { permissions: true }
     });
 
     if (!user) {
@@ -36,11 +37,16 @@ async function login(email, password) {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
 
+    const { getEffectivePermissions } = require('../config/permissions');
+    const { permissions, scope } = getEffectivePermissions(user);
+
     const safeUser = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      permissions: Array.from(permissions),
+      permissionScope: scope,
       created_at: user.created_at,
       updated_at: user.updated_at
     };
@@ -63,7 +69,10 @@ async function getMe(userId) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: USER_SELECT_SAFE
+      select: {
+        ...USER_SELECT_SAFE,
+        permissions: true
+      }
     });
 
     if (!user) {
@@ -72,7 +81,18 @@ async function getMe(userId) {
       throw err;
     }
 
-    return user;
+    const { getEffectivePermissions } = require('../config/permissions');
+    const { permissions, scope } = getEffectivePermissions(user);
+    const userWithPerms = {
+      ...user,
+      permissions: Array.from(permissions),
+      permissionScope: scope
+    };
+    
+    // Remove the raw permissions relation from the payload
+    delete userWithPerms.permissions_relation; // Wait, we just overwrite permissions array
+
+    return userWithPerms;
   } catch (error) {
     logger.error(`getMe error for user ${userId}: ${error.message}`);
     throw error;
@@ -89,8 +109,18 @@ async function signup(data) {
   try {
     const user = await userService.createUser(data);
     const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
+
+    const { getEffectivePermissions } = require('../config/permissions');
+    const { permissions, scope } = getEffectivePermissions(user);
+
+    const safeUser = {
+      ...user,
+      permissions: Array.from(permissions),
+      permissionScope: scope
+    };
+
     logger.info(`User signed up and logged in: ${user.id}`);
-    return { token, user };
+    return { token, user: safeUser };
   } catch (error) {
     logger.error(`Signup error for email ${data?.email}: ${error.message}`);
     throw error;

@@ -46,6 +46,7 @@ export function AuthProvider({ children }) {
         const token = localStorage.getItem('token')
         if (token) {
           const res = await apiClient.get('/auth/me')
+          // res.data.data includes { id, email, role, permissions: [...] }
           setUser(res.data.data)
         }
       } catch (err) {
@@ -58,25 +59,10 @@ export function AuthProvider({ children }) {
     fetchMe()
   }, [])
 
-  // Hybrid Login (Supports Demo Account Bypass + Real API Authentication)
+  // Login via Production API
   const login = useCallback(async (credentials) => {
     setLoading(true)
     try {
-      const email = String(credentials?.email || '').trim().toLowerCase()
-
-      // 1. Check for Demo Administrator Bypass
-      if (email === DEMO_ADMIN_EMAIL.toLowerCase()) {
-        const demoUser = resolveDemoUser(credentials)
-        setUser(demoUser)
-        try {
-          localStorage.setItem('lrd-auth-user', JSON.stringify(demoUser))
-        } catch {
-          // Ignore storage errors
-        }
-        return demoUser
-      }
-
-      // 2. Fallback to Production API Authentication
       const res = await apiClient.post('/auth/login', credentials)
       const { user: userData, token } = res.data.data
       localStorage.setItem('token', token)
@@ -97,24 +83,14 @@ export function AuthProvider({ children }) {
       // Ignore network errors during logout
     }
     localStorage.removeItem('token')
-    localStorage.removeItem('lrd-auth-user')
     setUser(null)
     window.location.href = '/login'
   }, [])
 
-  // Hybrid Permission engine supporting explicit string checks and admin bypass rules
+  // Check permissions strictly via backend-provided permissions array
   const hasPermission = useCallback(
     (resource, action) => {
       if (!user) return false
-
-      // Intercept and bypass permissions for general Admin flags
-      if (
-        user.roleKey === 'admin' ||
-        user.role === 'ADMIN' ||
-        user.role === 'Administrator'
-      ) {
-        return true
-      }
 
       if (!user.permissions) return false
       return user.permissions.includes(`${resource}:${action}`)
