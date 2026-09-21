@@ -43,6 +43,39 @@ The platform enforces strict functional access control using an explicit role ma
 | `X_INTERNAL_TOKEN` | Backend, ML Service | Shared secret for backend → ML calls (must match in both) |
 | `ML_SERVICE_URL` | Backend | Base URL of the ML service |
 | `VITE_API_URL` | Frontend | Backend URL as seen from the browser (build-time) |
+| `ALLOW_PUBLIC_SIGNUP` | Backend | Enable `POST /auth/signup`. Default `false`. Set `true` only in dev/test. Admins use `POST /users` to create users in production. |
+| `VITE_ALLOW_SIGNUP` | Frontend | Must match backend `ALLOW_PUBLIC_SIGNUP`. When `false`, the signup page and link are hidden. |
+| `SEED_ADMIN_PASSWORD` | Backend (seed) | **Required** to run `npx prisma db seed`. Must be changed after first login. |
+
+## Testing
+
+### Unit & Security Tests (no live DB required)
+```bash
+cd backend
+npx jest --testPathPatterns auth.test phase0 rbac.test --forceExit
+```
+
+### With Test Database
+The `docker-compose.yml` includes an isolated `db_test` service on port `5434` (schema: `land_acquisition_test`).
+
+```bash
+# 1. Start the test DB only
+docker-compose up db_test -d
+
+# 2. Apply migrations to the test DB
+DATABASE_URL=postgresql://db:db@localhost:5434/land_acquisition_test npx prisma migrate deploy
+
+# 3. Run all tests against the test DB
+# (backend/.env.test already points to localhost:5434)
+npm test
+```
+
+### Audit existing users
+```bash
+# Against any database:
+DATABASE_URL=<your-url> node scripts/audit-users.js
+```
+This script is **read-only** — it reports but never modifies.
 
 ## Running with Docker (recommended)
 

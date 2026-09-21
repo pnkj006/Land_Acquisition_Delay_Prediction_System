@@ -84,17 +84,22 @@ const ADMIN_TOKEN = 'Bearer mock-admin-token';
 const STAFF_TOKEN = 'Bearer mock-staff-token';
 const PM_TOKEN = 'Bearer mock-pm-token';
 
-// Wire authenticate to use token header -> user lookup
+// Wire authenticate to set req.user from the mocked DB lookup
 jest.mock('../src/middlewares/auth.middleware', () => ({
-  authenticate: jest.fn((req, res, next) => {
+  authenticate: async (req, res, next) => {
     const header = req.headers.authorization;
-    const prisma = jest.requireMock('../src/config/database');
-    if (!header) {
+    if (!header || !header.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: 'Unauthorized', error: { code: 'UNAUTHORIZED' } });
     }
-    // The middleware will call prisma.user.findUnique — we control that per test
+    // Load user from the mocked prisma — tests control the return value
+    const prisma = jest.requireMock('../src/config/database');
+    const user = await prisma.user.findUnique({ where: { id: 1 } });
+    if (!user || user.is_active === false) {
+      return res.status(401).json({ success: false, message: 'Unauthorized', error: { code: 'UNAUTHORIZED' } });
+    }
+    req.user = user;
     return next();
-  }),
+  },
 }));
 
 describe('Phase 0: Security Tests', () => {

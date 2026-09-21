@@ -36,7 +36,11 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginForm />} />
-        <Route path="/signup" element={<SignupForm />} />
+        {/* Signup is only available when VITE_ALLOW_SIGNUP=true (matches ALLOW_PUBLIC_SIGNUP on backend).
+            When disabled, admins create users via the admin panel. */}
+        {import.meta.env.VITE_ALLOW_SIGNUP === 'true' && (
+          <Route path="/signup" element={<SignupForm />} />
+        )}
 
         {/* Global Navigation Hooks */}
         <Route path="/dashboard" element={<Navigate to="/project-manager/dashboard" replace />} />
