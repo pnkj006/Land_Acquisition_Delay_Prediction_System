@@ -5,13 +5,29 @@
  */
 const { validationResult } = require('express-validator');
 
+// Helper to convert snake_case string to camelCase
+function toCamelCase(str) {
+  return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+}
+
 exports.validate = (req, res, next) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
-    const err = new Error(errors.array().map((e) => e.msg).join(', '));
+    const details = {};
+    errors.array().forEach(e => {
+      // Map field name to camelCase (e.g. project_id -> projectId)
+      const field = toCamelCase(e.path || e.param || '');
+      if (field) {
+        if (!details[field]) details[field] = [];
+        details[field].push(e.msg);
+      }
+    });
+
+    const err = new Error('Validation failed');
     err.statusCode = 400;
     err.code = 'VALIDATION_ERROR';
+    err.details = details;
     return next(err);
   }
 

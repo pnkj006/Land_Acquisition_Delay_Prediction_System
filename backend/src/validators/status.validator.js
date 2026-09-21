@@ -4,8 +4,10 @@
 const { body } = require('express-validator');
 
 const RESPONSIVENESS_LEVELS = ['HIGH', 'MEDIUM', 'LOW'];
+const PROJECT_STAGES = ['NOTIFICATION', 'APPROVAL', 'LAND_ACQUISITION', 'COMPENSATION', 'REHABILITATION', 'POSSESSION'];
 
 exports.statusUpdateValidators = [
+  body('stage').optional().isIn(PROJECT_STAGES),
   body('compensation_status').optional().isString().isLength({ max: 100 }),
   body('approval_timeline_days').optional().isInt({ min: 0 }),
   body('legal_disputes_count').optional().isInt({ min: 0 }),

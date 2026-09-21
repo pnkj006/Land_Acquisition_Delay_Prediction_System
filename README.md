@@ -44,7 +44,6 @@ The platform enforces strict functional access control using an explicit role ma
 | `ML_SERVICE_URL` | Backend | Base URL of the ML service |
 | `VITE_API_URL` | Frontend | Backend URL as seen from the browser (build-time) |
 | `ALLOW_PUBLIC_SIGNUP` | Backend | Enable `POST /auth/signup`. Default `false`. Set `true` only in dev/test. Admins use `POST /users` to create users in production. |
-| `VITE_ALLOW_SIGNUP` | Frontend | Must match backend `ALLOW_PUBLIC_SIGNUP`. When `false`, the signup page and link are hidden. |
 | `SEED_ADMIN_PASSWORD` | Backend (seed) | **Required** to run `npx prisma db seed`. Must be changed after first login. |
 
 ## Testing
@@ -164,12 +163,4 @@ Use this when you want hot-reload while developing. You need Node.js 20+, Python
 2. Install dependencies: `pip install -r requirements.txt`.
 3. Export the shared token: `export X_INTERNAL_TOKEN="your_secure_token"` (must match the backend's value).
 4. Start the prediction server: `uvicorn app:app --reload`.
-
-## Testing
-
-```bash
-cd backend
-npm test
-```
-
-E2E tests use `backend/.env.test`; the database name **must** end in `_test` so real data is never touched.
+

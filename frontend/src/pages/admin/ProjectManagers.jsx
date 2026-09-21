@@ -12,6 +12,9 @@ import { useProjectManagers } from '../../hooks/useProjectManagers.js'
 import { formatDate, formatDateTimeShort } from '../../utils/formatters'
 import { timeAgo } from '../../utils/dateUtils'
 
+import CreateUserModal from '../../components/admin/CreateUserModal.jsx'
+import Button from '../../components/common/Button.jsx'
+
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
   { value: 'Active', label: 'Active' },
@@ -105,6 +108,7 @@ export default function ProjectManagers() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [districtFilter, setDistrictFilter] = useState('all')
   const [selected, setSelected] = useState(null)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -132,6 +136,11 @@ export default function ProjectManagers() {
       <PageHeader
         title="Project Managers"
         subtitle="Monitor project managers, assigned projects, risks, pending actions and recent activity."
+        actions={
+          <Button onClick={() => setCreateModalOpen(true)}>
+            + Create User
+          </Button>
+        }
       />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <SummaryCard icon={Users} value={summary.total} label="Total Project Managers" />
@@ -219,6 +228,13 @@ export default function ProjectManagers() {
         )}
       </div>
       <ManagerDetailModal manager={selected} open={Boolean(selected)} onClose={() => setSelected(null)} />
+      <CreateUserModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSuccess={() => {
+          refetch()
+        }}
+      />
     </AdminDashboardLayout>
   )
 }

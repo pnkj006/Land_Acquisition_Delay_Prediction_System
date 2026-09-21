@@ -2,8 +2,8 @@
  * @fileoverview Alert Controller — passes req.user for scope filtering.
  */
 const alertService = require('../services/alert.service');
-const { sendSuccess, sendError } = require('../utils/response');
-const { getPagination, paginationMeta } = require('../utils/pagination');
+const { sendSuccess, sendError, sendPaginated } = require('../utils/response');
+const { getPagination } = require('../utils/pagination');
 
 exports.getAlerts = async (req, res, next) => {
   try {
@@ -14,9 +14,18 @@ exports.getAlerts = async (req, res, next) => {
     };
 
     const result = await alertService.getAlerts(req.user, filters, page, limit, skip);
-    const meta = paginationMeta(result.total, page, limit);
-
-    return sendSuccess(res, { items: result.items, meta });
+    return res.status(200).json({
+      success: true,
+      message: 'Alerts retrieved successfully',
+      data: result.items,
+      unreadCount: result.unreadCount,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit) || 0,
+      },
+    });
   } catch (error) {
     next(error);
   }

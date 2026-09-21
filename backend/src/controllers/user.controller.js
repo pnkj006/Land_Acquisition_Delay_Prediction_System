@@ -2,8 +2,8 @@
  * @description Controller for user management endpoints.
  */
 const userService = require('../services/user.service');
-const { sendSuccess, sendError } = require('../utils/response');
-const { getPagination, paginationMeta } = require('../utils/pagination');
+const { getPagination } = require('../utils/pagination');
+const { sendSuccess, sendError, sendPaginated } = require('../utils/response');
 
 async function listUsers(req, res, next) {
   try {
@@ -15,9 +15,7 @@ async function listUsers(req, res, next) {
     };
     
     const { items, total } = await userService.listUsers(filters, page, limit, skip);
-    const meta = paginationMeta(total, page, limit);
-    
-    return sendSuccess(res, { items, meta }, 'Users retrieved');
+    return sendPaginated(res, items, page, limit, total, 'Users retrieved');
   } catch (err) {
     if (err.statusCode) return sendError(res, err.message, 'USER_ERROR', err.statusCode);
     next(err);

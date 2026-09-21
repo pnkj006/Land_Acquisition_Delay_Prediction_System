@@ -7,6 +7,7 @@ const express = require('express');
 jest.mock('../src/config/database', () => ({
   project: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     update: jest.fn(),
   },
   projectStatusHistory: {
@@ -21,7 +22,7 @@ jest.mock('../src/config/logger', () => ({
 }));
 
 jest.mock('../src/services/audit.service', () => ({
-  log: jest.fn(),
+  log: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('../src/ml/predictionClient', () => ({
@@ -65,7 +66,7 @@ describe('Status API', () => {
 
   describe('GET /api/v1/projects/:projectId/status', () => {
     it('returns current status', async () => {
-      prisma.project.findUnique.mockResolvedValue({
+      prisma.project.findFirst.mockResolvedValue({
         id: 1,
         project_id: 'PRJ-001',
         project_manager_id: 2,
@@ -87,8 +88,10 @@ describe('Status API', () => {
       expect(res.body.data.status.legal_disputes_count).toBe(1);
     });
 
-    it('returns 403 when PM requests status of a project not assigned to them', async () => {
-      prisma.project.findUnique.mockResolvedValue({ id: 1, project_id: 'PRJ-001', project_manager_id: 99 });
+    it('returns 404 when PM requests status of a project not assigned to them', async () => {
+      prisma.project.findFirst
+        .mockResolvedValueOnce({ id: 1, project_id: 'PRJ-001' }) // first resolve
+        .mockResolvedValueOnce(null); // second scope check fails
 
       const res = await request(app)
         .get('/api/v1/projects/PRJ-001/status')

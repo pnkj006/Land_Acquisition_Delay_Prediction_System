@@ -22,4 +22,5 @@ module.exports = {
   // When false (default), POST /auth/signup returns 404 and the frontend hides the link.
   // Admins create users via POST /users. Set to 'true' only in dev/testing.
   ALLOW_PUBLIC_SIGNUP: process.env.ALLOW_PUBLIC_SIGNUP === 'true',
+  PERMISSION_CACHE_TTL_MS: parseInt(process.env.PERMISSION_CACHE_TTL_MS || '60000', 10),
 };

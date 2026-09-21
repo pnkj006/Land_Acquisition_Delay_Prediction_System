@@ -1,28 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { getDashboardSummary } from '../api/dashboard.api'
 
 export function useDashboard() {
-  const [summary, setSummary] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: async ({ signal }) => {
+      // Pass signal down to getDashboardSummary if it supported it, but it currently doesn't pass it to fetchClient
+      // The wrapper handles it automatically if we pass the signal, so we should update dashboard.api.js next.
+      return getDashboardSummary({ signal })
+    },
+    staleTime: 60000,
+  })
 
-  useEffect(() => {
-    let isMounted = true
-    setLoading(true)
-    getDashboardSummary()
-      .then((res) => {
-        if (isMounted) setSummary(res.data)
-      })
-      .catch((err) => {
-        if (isMounted) setError(err)
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false)
-      })
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  return { summary, loading, error }
+  return {
+    summary: data?.data,
+    riskDistribution: data?.riskDistribution,
+    recentAlerts: data?.recentAlerts,
+    attentionProjects: data?.attentionProjects,
+    loading: isLoading,
+    error,
+    refetch,
+  }
 }

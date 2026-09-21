@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logo from '../../assets/images/logo.png'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useConfig } from '../../hooks/useConfig.js'
 import Input from '../common/Input.jsx'
 import Button from '../common/Button.jsx'
 
 export default function LoginForm() {
   const { login } = useAuth()
+  const { config } = useConfig()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -65,9 +67,11 @@ export default function LoginForm() {
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-xs text-gray-500">
-          Don't have an account? <Link to="/signup" className="font-medium text-accent hover:text-accent-dark">Sign Up</Link>
-        </p>
+        {config.allowPublicSignup && (
+          <p className="mt-4 text-center text-xs text-gray-500">
+            Don't have an account? <Link to="/signup" className="font-medium text-accent hover:text-accent-dark">Sign Up</Link>
+          </p>
+        )}
       </div>
     </div>
   )

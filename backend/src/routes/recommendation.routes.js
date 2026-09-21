@@ -12,6 +12,13 @@ const { auditRequest } = require('../middlewares/audit.middleware');
 
 router.use(authenticate);
 
+// GET /recommendations — recommendations:read, scope in service
+router.get(
+  '/recommendations',
+  authorize('recommendations', 'read'),
+  recommendationController.getAllRecommendations
+);
+
 // GET /projects/:projectId/recommendations — recommendations:read, scope in service
 router.get(
   '/projects/:projectId/recommendations',

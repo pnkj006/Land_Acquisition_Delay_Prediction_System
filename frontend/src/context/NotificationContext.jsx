@@ -10,9 +10,9 @@ export function NotificationProvider({ children }) {
 
   useEffect(() => {
     getAlerts()
-      .then(data => {
-        setNotifications(data || [])
-        setUnreadCount((data || []).filter(n => !n.isRead).length)
+      .then(res => {
+        setNotifications(res.data || [])
+        setUnreadCount(res.unreadCount || 0)
       })
       .catch(err => console.error('Error fetching alerts:', err))
   }, [])

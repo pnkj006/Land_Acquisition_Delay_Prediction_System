@@ -7,7 +7,8 @@ const { parseCSV } = require('../src/utils/csvParser');
 
 jest.mock('../src/config/database', () => ({
   project: { upsert: jest.fn() },
-  importHistory: { create: jest.fn(), findMany: jest.fn(), count: jest.fn() }
+  importHistory: { create: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+  $transaction: jest.fn((callback) => callback(require('../src/config/database'))),
 }));
 
 jest.mock('../src/utils/csvParser', () => ({
@@ -18,6 +19,11 @@ jest.mock('../src/config/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
   warn: jest.fn()
+}));
+
+jest.mock('../src/services/audit.service', () => ({
+  log: jest.fn().mockResolvedValue({}),
+  logInTx: jest.fn().mockResolvedValue({})
 }));
 
 // Mock middlewares
@@ -124,14 +130,8 @@ describe('Import Routes', () => {
       .set('Authorization', 'Bearer VALID_ADMIN')
       .attach('file', Buffer.from('csv content'), 'test.csv');
 
-    expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({
-      importId: 2,
-      totalRows: 2,
-      successfulRows: 1,
-      failedRows: 1
-    });
-    expect(res.body.data.errors.length).toBe(1);
+    expect(res.status).toBe(400);
+    expect(res.body.error.details.length).toBe(1);
   });
 
   it('POST /api/v1/imports/projects - ADMIN with no file: returns 400', async () => {

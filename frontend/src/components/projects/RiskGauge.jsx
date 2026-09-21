@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
 import RiskBadge from '../common/RiskBadge.jsx'
 import { getRiskMeta } from '../../utils/riskUtils'
-import { formatDays } from '../../utils/formatters'
+import { formatRiskScore } from '../../utils/formatters'
 import { RISK_LEVELS } from '../../utils/constants'
 
 /**
@@ -16,7 +16,7 @@ const ATTENTION_TEXT = {
   [RISK_LEVELS.LOW]: 'On track — routine review only',
 }
 
-export default function RiskGauge({ probability = 0, riskLevel, expectedDelayDays, warningMessage }) {
+export default function RiskGauge({ probability = 0, riskLevel, riskScore, warningMessage }) {
   const pct = Math.max(0, Math.min(100, Number(probability) || 0))
   const meta = getRiskMeta(riskLevel)
   const attention = ATTENTION_TEXT[riskLevel] || ATTENTION_TEXT[RISK_LEVELS.MEDIUM]
@@ -36,8 +36,8 @@ export default function RiskGauge({ probability = 0, riskLevel, expectedDelayDay
         </div>
         <div className="flex flex-col gap-1.5">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Expected Delay</p>
-            <p className="text-lg font-bold leading-tight tabular-nums text-gray-900">{formatDays(expectedDelayDays)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Risk Score</p>
+            <p className="text-lg font-bold leading-tight tabular-nums text-gray-900">{formatRiskScore(riskScore)}</p>
           </div>
           <RiskBadge level={riskLevel || RISK_LEVELS.MEDIUM} />
         </div>

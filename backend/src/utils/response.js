@@ -27,14 +27,12 @@ exports.sendPaginated = (res, items, page, limit, total, message = 'Records retr
   return res.status(200).json({
     success: true,
     message,
-    data: {
-      items,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / limit) || 0,
-      },
+    data: items,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / limit) || 0,
     },
   });
 };

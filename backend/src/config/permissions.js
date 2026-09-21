@@ -23,7 +23,7 @@ const roleDefaults = {
     'predictions:read',
     'rerun_prediction:write',
     'recommendations:read',
-    'alerts:read',
+    'alerts:read', 'alerts:write',
     'audit_logs:read',
   ]),
   PROJECT_MANAGER: new Set([

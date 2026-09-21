@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import apiClient from '../api/apiClient'
+import { fetchClient } from '../api/fetchClient'
 
 const AuthContext = createContext(null)
 
@@ -35,36 +35,54 @@ function resolveDemoUser(credentials = {}) {
   return MOCK_USER
 }
 
+export let fetchMeFromToken = () => {}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   // Restore authentication when application starts via real API
-  useEffect(() => {
-    const fetchMe = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        if (token) {
-          const res = await apiClient.get('/auth/me')
-          // res.data.data includes { id, email, role, permissions: [...] }
-          setUser(res.data.data)
-        }
-      } catch (err) {
-        setUser(null)
-        localStorage.removeItem('token')
-      } finally {
-        setLoading(false)
+  const fetchMe = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        const res = await fetchClient('/auth/me')
+        // res.data includes { id, email, role, permissions: [...] }
+        setUser(res.data.user)
       }
+    } catch (err) {
+      setUser(null)
+      localStorage.removeItem('token')
+    } finally {
+      setLoading(false)
     }
-    fetchMe()
   }, [])
+
+  useEffect(() => {
+    fetchMeFromToken = fetchMe
+    fetchMe()
+  }, [fetchMe])
 
   // Login via Production API
   const login = useCallback(async (credentials) => {
     setLoading(true)
     try {
-      const res = await apiClient.post('/auth/login', credentials)
-      const { user: userData, token } = res.data.data
+      const res = await fetchClient('/auth/login', { method: 'POST', body: credentials })
+      const { user: userData, token } = res.data
+      localStorage.setItem('token', token)
+      setUser(userData)
+      return userData
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Register via Production API
+  const register = useCallback(async (credentials) => {
+    setLoading(true)
+    try {
+      const res = await fetchClient('/auth/signup', { method: 'POST', body: credentials })
+      const { user: userData, token } = res.data
       localStorage.setItem('token', token)
       setUser(userData)
       return userData
@@ -77,7 +95,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       if (localStorage.getItem('token')) {
-        await apiClient.post('/auth/logout')
+        await fetchClient('/auth/logout', { method: 'POST' })
       }
     } catch (e) {
       // Ignore network errors during logout
@@ -103,11 +121,12 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
+      register,
       logout,
       isAuthenticated: Boolean(user),
       hasPermission,
     }),
-    [user, loading, login, logout, hasPermission],
+    [user, loading, login, register, logout, hasPermission],
   )
 
   return (

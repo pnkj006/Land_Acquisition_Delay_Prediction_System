@@ -68,9 +68,11 @@ export default function AlertDetailModal({ alert, project, open, onClose }) {
                   value={<span className="font-bold tabular-nums text-gray-900">{project.delayProbability}%</span>}
                 />
                 <Info
-                  label="Expected Delay"
+                  label="Risk Score"
                   value={
-                    <span className="font-bold tabular-nums text-gray-900">{project.expectedDelayDays} days</span>
+                    <span className="font-bold tabular-nums text-gray-900">
+                      {project.riskScore != null ? project.riskScore.toFixed(1) : '—'}%
+                    </span>
                   }
                 />
               </dl>

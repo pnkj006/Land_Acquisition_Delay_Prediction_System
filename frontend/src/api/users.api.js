@@ -1,35 +1,39 @@
-import apiClient from './apiClient';
+import { fetchClient } from './fetchClient'
 
-const API_BASE = '/users';
+const API_BASE = '/users'
 
 export const usersApi = {
   listUsers: async (params) => {
-    const res = await apiClient.get(API_BASE, { params });
-    return res.data.data;
+    const query = new URLSearchParams()
+    if (params?.page) query.append('page', params.page)
+    if (params?.limit) query.append('limit', params.limit)
+    if (params?.role) query.append('role', params.role)
+    const res = await fetchClient(`${API_BASE}?${query.toString()}`)
+    return res.data
   },
   
   createUser: async (data) => {
-    const res = await apiClient.post(API_BASE, data);
-    return res.data.data;
+    const res = await fetchClient(API_BASE, { method: 'POST', body: data })
+    return res.data
   },
   
   updateUser: async (id, data) => {
-    const res = await apiClient.patch(`${API_BASE}/${id}`, data);
-    return res.data.data;
+    const res = await fetchClient(`${API_BASE}/${id}`, { method: 'PATCH', body: data })
+    return res.data
   },
   
   deleteUser: async (id) => {
-    const res = await apiClient.delete(`${API_BASE}/${id}`);
-    return res.data.data;
+    const res = await fetchClient(`${API_BASE}/${id}`, { method: 'DELETE' })
+    return res.data
   },
   
   getPermissions: async (id) => {
-    const res = await apiClient.get(`${API_BASE}/${id}/permissions`);
-    return res.data.data;
+    const res = await fetchClient(`${API_BASE}/${id}/permissions`)
+    return res.data
   },
   
   setPermissions: async (id, grants) => {
-    const res = await apiClient.put(`${API_BASE}/${id}/permissions`, { grants });
-    return res.data.data;
+    const res = await fetchClient(`${API_BASE}/${id}/permissions`, { method: 'PUT', body: { grants } })
+    return res.data
   }
-};
+}

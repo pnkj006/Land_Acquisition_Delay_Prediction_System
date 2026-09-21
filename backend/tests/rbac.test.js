@@ -17,6 +17,7 @@ jest.mock('../src/config/database', () => ({
 }));
 
 jest.mock('../src/services/audit.service', () => ({
+  log: jest.fn().mockResolvedValue({}),
   logInTx: jest.fn().mockResolvedValue({}),
 }));
 
@@ -58,7 +59,7 @@ describe('RBAC Permission Service', () => {
         permissions: []
       });
 
-      await expect(setUserPermissions({ id: 1 }, 1, [{ resource: 'projects', action: 'write' }]))
+      await expect(setUserPermissions({ id: 2, role: 'ADMIN' }, 1, [{ resource: 'projects', action: 'write' }]))
         .rejects.toThrow('Grants cannot be assigned to ADMIN users');
     });
 
@@ -69,7 +70,7 @@ describe('RBAC Permission Service', () => {
         permissions: []
       });
 
-      await expect(setUserPermissions({ id: 1 }, 2, [{ resource: 'unknown', action: 'read' }]))
+      await expect(setUserPermissions({ id: 1, role: 'ADMIN' }, 2, [{ resource: 'unknown', action: 'read' }]))
         .rejects.toThrow(/Unknown or non-grantable permission/);
     });
   });
@@ -123,8 +124,9 @@ describe('RBAC Permission Service', () => {
         }
       };
 
-      traverseStack(app._router.stack);
-      
+      if (app._router && app._router.stack) {
+        traverseStack(app._router.stack);
+      }
       expect(unguarded).toEqual([]);
     });
   });

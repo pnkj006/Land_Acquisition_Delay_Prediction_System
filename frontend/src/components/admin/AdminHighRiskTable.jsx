@@ -42,7 +42,7 @@ export default function AdminHighRiskTable({ projects = [] }) {
                 <th className="px-2 py-2 font-semibold">Project Manager</th>
                 <th className="px-2 py-2 font-semibold">Risk Level</th>
                 <th className="px-2 py-2 font-semibold">Delay Probability</th>
-                <th className="px-2 py-2 font-semibold">Expected Delay</th>
+                <th className="px-4 py-3 font-semibold">Risk Score</th>
                 <th className="px-2 py-2 font-semibold">Current Stage</th>
                 <th className="px-2 py-2 font-semibold">Action</th>
               </tr>
@@ -60,8 +60,8 @@ export default function AdminHighRiskTable({ projects = [] }) {
                   <td className="px-2 py-2.5 tabular-nums">
                     {project.delayProbability != null ? `${project.delayProbability}%` : 'N/A'}
                   </td>
-                  <td className="px-2 py-2.5 tabular-nums">
-                    {project.expectedDelayDays != null ? `${project.expectedDelayDays} days` : 'N/A'}
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                    {project.riskScore != null ? `${project.riskScore}%` : 'N/A'}
                   </td>
                   <td className="px-2 py-2.5">{project.stage || 'N/A'}</td>
                   <td className="px-2 py-2.5">

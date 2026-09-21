@@ -29,6 +29,8 @@ function buildListWhere(user, filters) {
   else if (filters.riskLevel === 'MEDIUM') where.risk_score = { gte: 0.4, lt: 0.7 };
   else if (filters.riskLevel === 'LOW') where.risk_score = { lt: 0.4 };
 
+  if (filters.stage) where.current_stage = filters.stage;
+
   return where;
 }
 
@@ -36,10 +38,12 @@ function buildOrderBy(sortBy, sortOrder) {
   const order = sortOrder === 'asc' ? 'asc' : 'desc';
   const fieldMap = {
     riskScore: 'risk_score',
+    risk_score: 'risk_score',
     created_at: 'created_at',
     updated_at: 'updated_at',
     delay_days: 'delay_days',
     project_id: 'project_id',
+    current_stage: 'current_stage',
   };
   const field = fieldMap[sortBy] || 'created_at';
   return { [field]: order };

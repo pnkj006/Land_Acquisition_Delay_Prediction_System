@@ -10,6 +10,7 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/env');
 const prisma = require('../config/database');
+const permissionCache = require('../utils/permissionCache');
 
 exports.authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -34,21 +35,35 @@ exports.authenticate = async (req, res, next) => {
   }
 
   try {
-    // Load user fresh from DB — role and grants always from DB, never from JWT
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      include: { permissions: true },
-    });
+    let user;
+    const cached = permissionCache.get(decoded.id);
 
-    if (!user || user.is_active === false) {
-      const err = new Error('Invalid or expired token');
-      err.statusCode = 401;
-      err.code = 'UNAUTHORIZED';
-      return next(err);
+    if (cached) {
+      if (!cached.isActive) {
+        const err = new Error('Account deactivated');
+        err.statusCode = 401;
+        err.code = 'UNAUTHORIZED';
+        return next(err);
+      }
+      user = cached.user;
+    } else {
+      // Load user fresh from DB — role and grants always from DB, never from JWT
+      user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: { permissions: true },
+      });
+
+      if (!user || user.is_active === false) {
+        const err = new Error('Invalid or expired token');
+        err.statusCode = 401;
+        err.code = 'UNAUTHORIZED';
+        return next(err);
+      }
+      
+      permissionCache.set(decoded.id, user);
     }
 
-    // Attach full user (without password_hash in practice; Prisma selects all by default)
-    // Password is not exposed through req.user since we never reference it elsewhere.
+    // Attach full user
     req.user = user;
     next();
   } catch (error) {

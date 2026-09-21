@@ -1,0 +1,132 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Land Acquisition Delay Prediction API",
+    "description": "API for managing projects, predicting risks, and tracking status.",
+    "termsOfService": "",
+    "version": "1.0.0"
+  },
+  "servers": [],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/projects": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      },
+      "post": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      },
+      "patch": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/risk": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/risk/history": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/risk/stages": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/risk/factors": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/risk/rerun": {
+      "post": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    },
+    "/projects/:projectId/status": {
+      "get": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      },
+      "patch": {
+        "deprecated": false,
+        "summary": "",
+        "security": [],
+        "responses": {},
+        "parameters": [],
+        "tags": []
+      }
+    }
+  },
+  "tags": []
+}

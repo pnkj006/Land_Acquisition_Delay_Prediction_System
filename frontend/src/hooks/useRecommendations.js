@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAllRecommendations, updateRecommendationStatus } from '../api/recommendations.api'
 
 /**
@@ -8,51 +8,27 @@ import { getAllRecommendations, updateRecommendationStatus } from '../api/recomm
  * failure the card keeps its server state and the caller shows an error.
  */
 export function useRecommendations() {
-  const [recommendations, setRecommendations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [updatingId, setUpdatingId] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
+  const queryClient = useQueryClient()
 
-  const fetchRecommendations = useCallback(() => {
-    let isMounted = true
-    setLoading(true)
-    getAllRecommendations()
-      .then((res) => {
-        if (isMounted) {
-          setRecommendations(res.data)
-          setError(null)
-          setLastUpdated(new Date())
-        }
-      })
-      .catch((err) => {
-        if (isMounted) setError(err)
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false)
-      })
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  const query = useQuery({
+    queryKey: ['recommendations'],
+    queryFn: ({ signal }) => getAllRecommendations({ signal }),
+  })
 
-  useEffect(() => {
-    const cleanup = fetchRecommendations()
-    return cleanup
-  }, [fetchRecommendations])
+  const mutation = useMutation({
+    mutationFn: ({ id, status }) => updateRecommendationStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recommendations'] })
+    },
+  })
 
-  const updateStatus = useCallback(async (recId, status) => {
-    setUpdatingId(recId)
-    try {
-      await updateRecommendationStatus(recId, status)
-      setRecommendations((prev) => prev.map((r) => (r.id === recId ? { ...r, status } : r)))
-      return true
-    } catch {
-      return false
-    } finally {
-      setUpdatingId(null)
-    }
-  }, [])
-
-  return { recommendations, loading, error, refetch: fetchRecommendations, updateStatus, updatingId, lastUpdated }
+  return { 
+    recommendations: query.data?.data || [], 
+    loading: query.isLoading, 
+    error: query.error, 
+    refetch: query.refetch, 
+    updateStatus: (id, status) => mutation.mutateAsync({ id, status }), 
+    updatingId: mutation.variables?.id || null, 
+    lastUpdated: query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null
+  }
 }

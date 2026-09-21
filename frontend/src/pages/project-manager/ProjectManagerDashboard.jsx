@@ -13,6 +13,7 @@ import {
   ListTodo,
   MapPin,
   RefreshCw,
+  Percent,
 } from 'lucide-react'
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx'
 import SummaryCard from '../../components/dashboard/SummaryCard.jsx'
@@ -26,17 +27,20 @@ import ProjectProgress from '../../components/projects/ProjectProgress.jsx'
 import Recommendations from '../../components/projects/Recommendations.jsx'
 import RiskBadge from '../../components/common/RiskBadge.jsx'
 import Loader from '../../components/common/Loader.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useDashboard } from '../../hooks/useDashboard.js'
 import { useProjects } from '../../hooks/useProjects.js'
 import { useRisk } from '../../hooks/useRisk.js'
 import { getRecommendations } from '../../api/recommendations.api'
 import { getTypeIcon } from '../../utils/typeIcons'
-import { DISTRICT_NAME } from '../../utils/constants'
-import { formatDate, formatDateTimeShort } from '../../utils/formatters'
+import { formatDate, formatDateTimeShort, formatRiskScore } from '../../utils/formatters'
 
 const TABS = ['Overview', 'Risk Analysis', 'Explanation (XAI)', 'Recommendations', 'Progress', 'Documents']
 
 export default function ProjectManagerDashboard() {
+  const { user } = useAuth()
+  const districtText = user?.district || 'All Districts'
+  
   const { summary, loading: summaryLoading } = useDashboard()
   const { projects, pagination, loading: projectsLoading, error: projectsError, filters, setFilters, refetch } = useProjects({ pageSize: 5 })
 
@@ -78,7 +82,7 @@ export default function ProjectManagerDashboard() {
         <SummaryCard icon={AlertTriangle} value={summaryLoading ? '—' : summary?.highRisk} label="High Risk" accent="text-red-600" bg="bg-red-50" />
         <SummaryCard icon={AlertCircle} value={summaryLoading ? '—' : summary?.mediumRisk} label="Medium Risk" accent="text-amber-500" bg="bg-amber-50" />
         <SummaryCard icon={CheckCircle2} value={summaryLoading ? '—' : summary?.lowRisk} label="Low Risk" accent="text-green-600" bg="bg-green-50" />
-        <SummaryCard icon={CalendarClock} value={summaryLoading ? '—' : summary?.avgExpectedDelayDays} label="Avg. Expected Delay" suffix="days" />
+        <SummaryCard icon={Percent} value={summaryLoading ? '—' : formatRiskScore(summary?.avgRiskScore)} label="Avg. Risk Score" />
         <SummaryCard icon={ListTodo} value={summaryLoading ? '—' : summary?.pendingActions} label="Pending Actions" />
         <SummaryCard
           icon={RefreshCw}
@@ -100,7 +104,7 @@ export default function ProjectManagerDashboard() {
                   <MapPin className="h-4 w-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800">Projects Map ({DISTRICT_NAME})</h3>
+                  <h3 className="text-sm font-semibold text-gray-800">Projects Map ({districtText})</h3>
                   <p className="text-[11px] text-gray-400">Click a marker to inspect the project</p>
                 </div>
               </div>
@@ -113,7 +117,7 @@ export default function ProjectManagerDashboard() {
 
           {/* My Projects table card */}
           <ProjectTable
-            title="My Projects (Cuttack District)"
+            title={`My Projects (${districtText})`}
             projects={projects}
             loading={projectsLoading}
             error={projectsError}
@@ -210,7 +214,7 @@ export default function ProjectManagerDashboard() {
                         <RiskGauge
                           probability={prediction.delayProbability}
                           riskLevel={prediction.riskLevel}
-                          expectedDelayDays={prediction.expectedDelayDays}
+                          riskScore={prediction.riskScore}
                           warningMessage={prediction.warningMessage}
                         />
                       )}

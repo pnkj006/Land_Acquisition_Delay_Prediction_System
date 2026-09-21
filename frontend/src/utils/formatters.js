@@ -1,15 +1,26 @@
-export function formatPercent(value, digits = 0) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
-  return `${Number(value).toFixed(digits)}%`
+export function formatPercent(value) {
+  if (value == null) return '—';
+  if (Number.isNaN(value)) return '—';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(value)
+}
+
+export function formatRiskScore(score) {
+  if (score == null) return '—';
+  if (Number.isNaN(score)) return '—';
+  return formatPercent(score / 100)
 }
 
 export function formatNumber(value) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  if (value == null || Number.isNaN(value)) return '—'
   return new Intl.NumberFormat('en-IN').format(value)
 }
 
 export function formatDays(value) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  if (value == null || Number.isNaN(value)) return '—'
   return `${value} day${Number(value) === 1 ? '' : 's'}`
 }
 

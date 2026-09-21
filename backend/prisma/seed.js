@@ -110,7 +110,7 @@ async function main() {
       longitude: 85.8245,
       delay_status: 'DELAYED',
       delay_days: 120,
-      risk_score: 0.82,
+      risk_score: 82.0,
     },
   });
 
@@ -135,8 +135,8 @@ async function main() {
       latitude: 20.2961,
       longitude: 85.8245,
       delay_status: 'ON_TIME',
-      delay_days: 0,
-      risk_score: 0.35,
+      delay_days: null,
+      risk_score: 35.0,
     },
   });
 
@@ -154,15 +154,15 @@ async function main() {
       possession_status: 'PENDING',
       rehabilitation_progress_pct: 10.0,
       stakeholder_responsiveness: 'LOW',
-      historical_performance_score: 0.3,
+      historical_performance_score: 30.0,
       location: 'Puri Canal Zone',
       state: 'Odisha',
       district: 'Puri',
       latitude: 19.8135,
       longitude: 85.8312,
       delay_status: 'DELAYED',
-      delay_days: 200,
-      risk_score: 0.91,
+      delay_days: 45,
+      risk_score: 91.0,
     },
   });
 
@@ -194,42 +194,46 @@ async function main() {
     update: {},
     create: {
       project_id: p1.id,
-      risk_score: 0.82,
+      risk_score: 82.0,
       risk_level: 'HIGH',
-      delay_probability: 0.75,
       top_factors: ['legal_disputes', 'rehabilitation_progress'],
       model_version: 'seed-v1',
+      status: 'DONE',
+      finished_at: new Date()
     },
   }).catch(() => prisma.riskPrediction.create({
     data: {
       project_id: p1.id,
-      risk_score: 0.82,
+      risk_score: 82.0,
       risk_level: 'HIGH',
-      delay_probability: 0.75,
       top_factors: ['legal_disputes', 'rehabilitation_progress'],
       model_version: 'seed-v1',
+      status: 'DONE',
+      finished_at: new Date()
     },
   }));
 
   const rp2 = await prisma.riskPrediction.create({
     data: {
       project_id: p2.id,
-      risk_score: 0.35,
+      risk_score: 35.0,
       risk_level: 'LOW',
-      delay_probability: 0.2,
       top_factors: ['compensation_status'],
       model_version: 'seed-v1',
+      status: 'DONE',
+      finished_at: new Date()
     },
   }).catch(() => null);
 
   const rp3 = await prisma.riskPrediction.create({
     data: {
       project_id: p3.id,
-      risk_score: 0.91,
+      risk_score: 91.0,
       risk_level: 'HIGH',
-      delay_probability: 0.88,
       top_factors: ['legal_disputes', 'stakeholder_responsiveness'],
       model_version: 'seed-v1',
+      status: 'DONE',
+      finished_at: new Date()
     },
   }).catch(() => null);
 

@@ -68,6 +68,12 @@ enum AlertSeverity {
   LOW
 }
 
+enum PredictionStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
 // ─────────────────────────────
 // MODELS
 // ─────────────────────────────
@@ -125,6 +131,7 @@ model Project {
   delay_status                 DelayStatus?
   delay_days                   Int?
   risk_score                   Float?
+  current_stage                ProjectStage?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -176,6 +183,7 @@ model UserPermission {
 model ProjectStatusHistory {
   id                           Int      @id @default(autoincrement())
   project_id                   Int
+  stage                        ProjectStage?
   compensation_status          String?
   approval_timeline_days       Int?
   legal_disputes_count         Int?
@@ -195,12 +203,16 @@ model ProjectStatusHistory {
 model RiskPrediction {
   id                Int       @id @default(autoincrement())
   project_id        Int
-  risk_score        Float
-  risk_level        RiskLevel
-  delay_probability Float?
+  risk_score        Float?
+  risk_level        RiskLevel?
   top_factors       Json?
   model_version     String?
   predicted_at      DateTime  @default(now())
+
+  status            PredictionStatus?
+  started_at        DateTime?
+  finished_at       DateTime?
+  error_message     String?          @db.VarChar(500)
 
   project         Project          @relation(fields: [project_id], references: [id], onDelete: Cascade)
   stage_risks     StageRisk[]

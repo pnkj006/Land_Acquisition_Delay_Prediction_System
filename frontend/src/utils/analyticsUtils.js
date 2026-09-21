@@ -112,9 +112,9 @@ export function buildFilterOptions(projects = []) {
 export function computeMetrics(projects = []) {
   const total = projects.length
   const atRisk = projects.filter(isProjectAtRisk).length
-  const delays = projects.map((p) => Number(p.expectedDelayDays)).filter(Number.isFinite)
-  const avgDelay = delays.length
-    ? Math.round(delays.reduce((sum, d) => sum + d, 0) / delays.length)
+  const scores = projects.map((p) => Number(p.riskScore)).filter(Number.isFinite)
+  const avgRiskScore = scores.length
+    ? scores.reduce((sum, d) => sum + d, 0) / scores.length
     : null
   return {
     total,
@@ -123,7 +123,7 @@ export function computeMetrics(projects = []) {
     high: projects.filter((p) => p.riskLevel === RISK_LEVELS.HIGH).length,
     medium: projects.filter((p) => p.riskLevel === RISK_LEVELS.MEDIUM).length,
     low: projects.filter((p) => p.riskLevel === RISK_LEVELS.LOW).length,
-    avgDelay,
+    avgRiskScore,
   }
 }
 
@@ -142,7 +142,7 @@ export function computeDistrictRows(projects = []) {
   return [...byDistrict.entries()]
     .map(([district, list]) => {
       const probs = list.map((p) => Number(p.delayProbability)).filter(Number.isFinite)
-      const delays = list.map((p) => Number(p.expectedDelayDays)).filter(Number.isFinite)
+      const scores = list.map((p) => Number(p.riskScore)).filter(Number.isFinite)
       const avgProb = probs.length ? probs.reduce((s, v) => s + v, 0) / probs.length : null
       return {
         district,
@@ -150,8 +150,8 @@ export function computeDistrictRows(projects = []) {
         onTrack: list.filter((p) => !isProjectAtRisk(p)).length,
         atRisk: list.filter(isProjectAtRisk).length,
         highRisk: list.filter((p) => p.riskLevel === RISK_LEVELS.HIGH).length,
-        averageDelay: delays.length
-          ? Math.round(delays.reduce((s, v) => s + v, 0) / delays.length)
+        avgRiskScore: scores.length
+          ? scores.reduce((s, v) => s + v, 0) / scores.length
           : null,
         performance: avgProb === null ? null : Math.round(100 - avgProb),
       }
@@ -211,21 +211,21 @@ export function buildInsights(projects = []) {
     )
   }
 
-  // Stage with the highest average expected delay (only stages with data).
-  const delayByStage = new Map()
+  // Stage with the highest average risk score.
+  const scoreByStage = new Map()
   for (const p of projects) {
     if (!p.stage) continue
-    const d = Number(p.expectedDelayDays)
+    const d = Number(p.riskScore)
     if (!Number.isFinite(d)) continue
-    if (!delayByStage.has(p.stage)) delayByStage.set(p.stage, [])
-    delayByStage.get(p.stage).push(d)
+    if (!scoreByStage.has(p.stage)) scoreByStage.set(p.stage, [])
+    scoreByStage.get(p.stage).push(d)
   }
-  if (delayByStage.size > 0) {
-    const [stage, list] = [...delayByStage.entries()]
+  if (scoreByStage.size > 0) {
+    const [stage, list] = [...scoreByStage.entries()]
       .map(([s, ds]) => [s, ds.reduce((x, y) => x + y, 0) / ds.length])
       .sort((a, b) => b[1] - a[1])[0]
     insights.push(
-      `Projects in the ${stage} stage show the highest average expected delay (${Math.round(list)} days).`,
+      `Projects in the ${stage} stage show the highest average risk score (${list.toFixed(1)}%).`,
     )
   }
 
@@ -243,7 +243,7 @@ export function buildExportRows(projects = []) {
     p.riskLevel,
     deriveProgress(p) ?? '—',
     p.delayProbability != null ? `${p.delayProbability}%` : '—',
-    p.expectedDelayDays != null ? `${p.expectedDelayDays} days` : '—',
+    p.riskScore != null ? `${p.riskScore.toFixed(1)}%` : '—',
     isProjectAtRisk(p) ? 'At Risk' : 'On Track',
   ])
 }

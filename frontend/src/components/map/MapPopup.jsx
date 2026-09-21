@@ -26,7 +26,7 @@ export default function MapPopup({ marker, onViewDetails, actionLabel = 'View De
           Current Stage: <span className="font-semibold text-gray-800">{marker.stage || 'N/A'}</span>
         </p>
         <p>
-          Expected Delay: <span className="font-semibold text-gray-800">{formatNumber(marker.expectedDelayDays)} days</span>
+          Risk Score: <span className="font-semibold text-gray-800">{marker.riskScore != null ? `${marker.riskScore.toFixed(1)}%` : '—'}</span>
         </p>
       </div>
       <button

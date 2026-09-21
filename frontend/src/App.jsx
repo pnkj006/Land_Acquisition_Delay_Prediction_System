@@ -27,18 +27,20 @@ import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import LoginForm from './components/auth/LoginForm.jsx'
 import SignupForm from './components/auth/SignupForm.jsx'
 import NotFound from './pages/NotFound.jsx'
+import { useConfig } from './hooks/useConfig.js'
 import { SidebarProvider } from './context/SidebarContext.jsx'
 
 function App() {
+  const { config } = useConfig()
+
   return (
     <SidebarProvider>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginForm />} />
-        {/* Signup is only available when VITE_ALLOW_SIGNUP=true (matches ALLOW_PUBLIC_SIGNUP on backend).
-            When disabled, admins create users via the admin panel. */}
-        {import.meta.env.VITE_ALLOW_SIGNUP === 'true' && (
+        {/* Signup is only available when allowPublicSignup=true from backend */}
+        {config.allowPublicSignup && (
           <Route path="/signup" element={<SignupForm />} />
         )}
 

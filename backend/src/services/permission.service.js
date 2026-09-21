@@ -75,6 +75,18 @@ async function setUserPermissions(actor, targetUserId, newGrants) {
     throw err;
   }
 
+  if (actor.id === targetUserId) {
+    const err = new Error('You cannot modify your own permissions');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (actor.role !== 'ADMIN') {
+    const err = new Error('Only administrators can modify permissions');
+    err.statusCode = 403;
+    throw err;
+  }
+
   // 400: ADMIN cannot receive grants
   if (target.role === 'ADMIN') {
     const err = new Error('Grants cannot be assigned to ADMIN users');
@@ -161,6 +173,9 @@ async function setUserPermissions(actor, targetUserId, newGrants) {
 
     await logInTx(tx, actor, 'permissions_updated', 'users', targetUserId, { before, after });
   });
+
+  const permissionCache = require('../utils/permissionCache');
+  permissionCache.invalidate(targetUserId);
 
   return { changed: true, before, after };
 }

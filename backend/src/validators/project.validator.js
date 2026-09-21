@@ -8,7 +8,8 @@ const PROJECT_TYPES = ['HIGHWAY', 'RAILWAY', 'IRRIGATION', 'POWER', 'INDUSTRIAL'
 const RISK_LEVELS = ['HIGH', 'MEDIUM', 'LOW'];
 const RESPONSIVENESS_LEVELS = ['HIGH', 'MEDIUM', 'LOW'];
 const DELAY_STATUSES = ['DELAYED', 'ON_TIME'];
-const SORT_FIELDS = ['riskScore', 'created_at', 'updated_at', 'delay_days', 'project_id'];
+const PROJECT_STAGES = ['NOTIFICATION', 'APPROVAL', 'LAND_ACQUISITION', 'COMPENSATION', 'REHABILITATION', 'POSSESSION'];
+const SORT_FIELDS = ['risk_score', 'created_at', 'updated_at', 'delay_days', 'project_id', 'current_stage'];
 
 // ─────────────────────────────
 // CREATE
@@ -80,6 +81,7 @@ exports.projectListQueryValidators = [
   query('district').optional().isString().isLength({ max: 100 }),
   query('projectType').optional().isIn(PROJECT_TYPES),
   query('riskLevel').optional().isIn(RISK_LEVELS),
+  query('stage').optional().isIn(PROJECT_STAGES),
   query('managerId').optional().isString(),
   query('sortBy').optional().isIn(SORT_FIELDS),
   query('sortOrder').optional().isIn(['asc', 'desc']),

@@ -22,7 +22,7 @@ export default function AdminDistrictOverview({ rows = [] }) {
                 <th className="px-2 py-2 font-semibold">Projects</th>
                 <th className="px-2 py-2 font-semibold">High Risk</th>
                 <th className="px-2 py-2 font-semibold">Delayed</th>
-                <th className="px-2 py-2 font-semibold">Average Delay</th>
+                <th className="px-2 py-2 font-semibold">Avg. Risk Score</th>
               </tr>
             </thead>
             <tbody>
@@ -33,7 +33,7 @@ export default function AdminDistrictOverview({ rows = [] }) {
                   <td className="px-2 py-2.5 tabular-nums text-red-600">{row.highRisk}</td>
                   <td className="px-2 py-2.5 tabular-nums">{row.atRisk != null ? row.atRisk : 'N/A'}</td>
                   <td className="px-2 py-2.5 tabular-nums">
-                    {row.averageDelay != null ? `${row.averageDelay} days` : 'N/A'}
+                    {row.avgRiskScore != null ? `${row.avgRiskScore.toFixed(1)}%` : 'N/A'}
                   </td>
                 </tr>
               ))}

@@ -6,18 +6,61 @@ const prisma = require('../config/database');
 const { assertProjectInScope, projectScopeWhere } = require('../utils/scope');
 const { sendSuccess, sendError } = require('../utils/response');
 
+exports.getAllRecommendations = async (req, res, next) => {
+  try {
+    const { childScopeWhere } = require('../utils/scope');
+    const scopeWhere = childScopeWhere(req.user, 'project');
+
+    const recommendations = await prisma.recommendation.findMany({
+      where: {
+        ...scopeWhere,
+      },
+      include: {
+        project: {
+          select: {
+            project_id: true,
+            location: true,
+            current_stage: true,
+            risk_score: true,
+            project_type: true,
+            district: true,
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const priorityOrder = { HIGH: 1, MEDIUM: 2, LOW: 3 };
+    recommendations.sort((a, b) => {
+      const pA = priorityOrder[a.priority] || 4;
+      const pB = priorityOrder[b.priority] || 4;
+      if (pA !== pB) return pA - pB;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    return sendSuccess(res, recommendations);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getRecommendations = async (req, res, next) => {
   try {
-    const projectId = parseInt(req.params.projectId);
-    if (isNaN(projectId)) {
-      return sendError(res, 'Invalid project ID', 'INVALID_PARAM', 400);
+    const projectIdStr = req.params.projectId;
+    
+    const project = await prisma.project.findUnique({
+      where: { project_id: projectIdStr }
+    });
+    
+    if (!project) {
+      return sendError(res, 'Project not found', 'NOT_FOUND', 404);
     }
 
     // Scope check — produces 404 if not found or out of scope
-    await assertProjectInScope(req.user, projectId);
+    await assertProjectInScope(req.user, project.id);
 
     const recommendations = await prisma.recommendation.findMany({
-      where: { project_id: projectId },
+      where: { project_id: project.id },
       orderBy: { created_at: 'desc' },
     });
 
@@ -49,17 +92,20 @@ exports.updateRecommendationStatus = async (req, res, next) => {
       return sendError(res, 'Invalid status', 'INVALID_STATUS', 400);
     }
 
-    // Load recommendation with its project
-    const recommendation = await prisma.recommendation.findUnique({
-      where: { id: recommendationId },
+    const { childScopeWhere } = require('../utils/scope');
+    const scopeWhere = childScopeWhere(req.user, 'project');
+
+    // Load recommendation with scope applied
+    const recommendation = await prisma.recommendation.findFirst({
+      where: { 
+        id: recommendationId,
+        ...scopeWhere 
+      },
     });
 
     if (!recommendation) {
       return sendError(res, 'Recommendation not found', 'NOT_FOUND', 404);
     }
-
-    // Scope check through recommendation's project — 404 if out of scope
-    await assertProjectInScope(req.user, recommendation.project_id);
 
     const updatedRecommendation = await prisma.recommendation.update({
       where: { id: recommendationId },

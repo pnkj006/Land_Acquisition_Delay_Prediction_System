@@ -42,11 +42,24 @@ const getMapData = async (user, filters = {}) => {
       location: project.location,
       risk_score: latestPrediction ? latestPrediction.risk_score : null,
       risk_level: projectRiskLevel !== 'NONE' ? projectRiskLevel : null,
-      delay_probability: latestPrediction ? latestPrediction.delay_probability : null,
+      current_stage: project.current_stage || null,
     });
   }
 
-  return mapData;
+  // Sort by risk severity (HIGH -> MEDIUM -> LOW -> NONE) then id ASC
+  const riskWeight = { HIGH: 1, MEDIUM: 2, LOW: 3, NONE: 4 };
+  mapData.sort((a, b) => {
+    const wA = riskWeight[a.risk_level || 'NONE'];
+    const wB = riskWeight[b.risk_level || 'NONE'];
+    if (wA !== wB) return wA - wB;
+    return a.internal_id - b.internal_id;
+  });
+
+  const MAX_POINTS = 1000;
+  const truncated = mapData.length > MAX_POINTS;
+  const data = mapData.slice(0, MAX_POINTS);
+
+  return { data, total: mapData.length, truncated };
 };
 
 module.exports = { getMapData };

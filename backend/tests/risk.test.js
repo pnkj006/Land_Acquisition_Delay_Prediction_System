@@ -157,8 +157,8 @@ describe('Risk API', () => {
         .set('Authorization', 'Bearer VALID_ADMIN');
 
       expect(res.status).toBe(200);
-      expect(res.body.data.items.length).toBe(1);
-      expect(res.body.data.pagination.total).toBe(1);
+      expect(res.body.data.length).toBe(1);
+      expect(res.body.pagination.total).toBe(1);
     });
   });
 });

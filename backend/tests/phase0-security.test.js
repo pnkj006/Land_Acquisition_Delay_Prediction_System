@@ -227,8 +227,43 @@ describe('Phase 0: Security Tests', () => {
       const res = await request(app)
         .get('/api/v1/users')
         .set('Authorization', ADMIN_TOKEN); // old token issued when user was ADMIN
-
       expect(res.status).toBe(403);
+    });
+  });
+
+  // ──────────────────────────────────────────────────
+  // Password Echo & Malformed JSON Tests
+  // ──────────────────────────────────────────────────
+  describe('Password echo prevention (Sentinel string test)', () => {
+    it('does not echo password in signup validation errors', async () => {
+      // Temporarily enable signup for this test
+      const env = jest.requireMock('../src/config/env');
+      env.ALLOW_PUBLIC_SIGNUP = true;
+      const SENTINEL = '<SENTINEL_abc123>';
+      
+      const res = await request(app)
+        .post('/api/v1/auth/signup')
+        .send({ email: 'invalid-email', password: SENTINEL, name: 'T' });
+        
+      expect(res.status).toBe(400); // Validation error
+      expect(res.body.success).toBe(false);
+      expect(JSON.stringify(res.body)).not.toContain(SENTINEL);
+      
+      env.ALLOW_PUBLIC_SIGNUP = false; // restore
+    });
+
+    it('does not echo password on malformed JSON', async () => {
+      const SENTINEL = '<SENTINEL_abc123>';
+      const malformedJson = `{ "email": "test@test.com", "password": "${SENTINEL}"`; // Missing closing brace
+      
+      const res = await request(app)
+        .post('/api/v1/auth/login')
+        .set('Content-Type', 'application/json')
+        .send(malformedJson);
+        
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Malformed JSON');
+      expect(JSON.stringify(res.body)).not.toContain(SENTINEL);
     });
   });
 });

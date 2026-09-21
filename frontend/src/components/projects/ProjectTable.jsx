@@ -11,6 +11,7 @@ import EmptyState from '../common/EmptyState.jsx'
 import ErrorState from '../common/ErrorState.jsx'
 import UpdateStatusForm from './UpdateStatusForm.jsx'
 import { getProjectStatus } from '../../utils/riskUtils'
+import { formatPercent } from '../../utils/formatters'
 
 export default function ProjectTable({
   projects = [],
@@ -78,7 +79,7 @@ export default function ProjectTable({
                 <th className="px-4 py-2.5 font-semibold">Stage</th>
                 <th className="px-4 py-2.5 font-semibold">Risk Level</th>
                 <th className="px-4 py-2.5 text-right font-semibold">Delay Prob.</th>
-                <th className="px-4 py-2.5 text-right font-semibold">Expected Delay</th>
+                <th className="px-4 py-2.5 text-right font-semibold">Risk Score</th>
                 <th className="px-4 py-2.5 text-center font-semibold">Status</th>
                 <th className="px-4 py-2.5 text-right font-semibold">Action</th>
               </tr>
@@ -102,8 +103,8 @@ export default function ProjectTable({
                   <td className="px-4 py-3">
                     <RiskBadge level={project.riskLevel} />
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-800">{project.delayProbability}%</td>
-                  <td className="px-4 py-3 text-right text-gray-600">{project.expectedDelayDays} days</td>
+                  <td className="px-4 py-3 text-right font-semibold text-gray-800">{project.delayProbability != null ? formatPercent(project.delayProbability) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{project.riskScore != null ? `${project.riskScore}%` : '—'}</td>
                   <td className="px-4 py-3 text-center">
                     {projectStatus ? (
                       <span

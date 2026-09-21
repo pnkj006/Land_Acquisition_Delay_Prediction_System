@@ -11,12 +11,14 @@ const prisma = new PrismaClient({
     : ['warn', 'error'],
 });
 
-prisma
-  .$connect()
-  .then(() => logger.info('Database connected'))
-  .catch((err) => {
-    logger.error('Database connection failed', err);
-    process.exit(1);
-  });
+if (process.env.NODE_ENV !== 'test') {
+  prisma
+    .$connect()
+    .then(() => logger.info('Database connected'))
+    .catch((err) => {
+      logger.error('Database connection failed', err);
+      process.exit(1);
+    });
+}
 
 module.exports = prisma;

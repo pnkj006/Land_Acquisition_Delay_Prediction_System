@@ -111,31 +111,35 @@ async function updateUser(userId, data, actor) {
     err.statusCode = 400;
     throw err;
   }
-  
-  if (data.role && data.role !== 'ADMIN' && user.role === 'ADMIN') {
-    // Check if this is the last active admin
-    const adminCount = await prisma.user.count({
-      where: { role: 'ADMIN', is_active: true }
-    });
-    if (adminCount <= 1) {
-      const err = new Error('Cannot change role of the last active administrator');
-      err.statusCode = 400;
-      throw err;
-    }
+
+  if (data.role && data.role !== user.role && actor.id === userId) {
+    const err = new Error('You cannot change your own role');
+    err.statusCode = 400;
+    throw err;
   }
 
-  if (data.is_active === false && user.role === 'ADMIN') {
-    const adminCount = await prisma.user.count({
-      where: { role: 'ADMIN', is_active: true }
-    });
-    if (adminCount <= 1) {
-      const err = new Error('Cannot deactivate the last active administrator');
-      err.statusCode = 400;
-      throw err;
-    }
+  if (data.role && data.role !== user.role && actor.role !== 'ADMIN') {
+    const err = new Error('Only administrators can change user roles');
+    err.statusCode = 403;
+    throw err;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    // If we are modifying an ADMIN (either demoting or deactivating)
+    if (user.role === 'ADMIN' && (data.role !== 'ADMIN' || data.is_active === false)) {
+      // Lock all active admin rows to prevent concurrent demotions
+      await tx.$executeRaw`SELECT id FROM users WHERE role = 'ADMIN' AND is_active = true FOR UPDATE`;
+      const adminCount = await tx.user.count({
+        where: { role: 'ADMIN', is_active: true }
+      });
+      if (adminCount <= 1) {
+        const err = new Error('Cannot demote or deactivate the last active administrator');
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
+    let actionName = 'user_updated';
     const updateData = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.email !== undefined) updateData.email = data.email;
@@ -181,6 +185,10 @@ async function updateUser(userId, data, actor) {
 
     return updatedUser;
   });
+
+  const permissionCache = require('../utils/permissionCache');
+  permissionCache.invalidate(userId);
+  return result;
 }
 
 /**
@@ -201,22 +209,27 @@ async function deleteUser(userId, actor) {
     throw err;
   }
 
-  if (user.role === 'ADMIN') {
-    const adminCount = await prisma.user.count({
-      where: { role: 'ADMIN', is_active: true }
-    });
-    if (adminCount <= 1) {
-      const err = new Error('Cannot delete the last administrator');
-      err.statusCode = 400;
-      throw err;
+  const result = await prisma.$transaction(async (tx) => {
+    if (user.role === 'ADMIN') {
+      await tx.$executeRaw`SELECT id FROM users WHERE role = 'ADMIN' AND is_active = true FOR UPDATE`;
+      const adminCount = await tx.user.count({
+        where: { role: 'ADMIN', is_active: true }
+      });
+      if (adminCount <= 1) {
+        const err = new Error('Cannot delete the last administrator');
+        err.statusCode = 400;
+        throw err;
+      }
     }
-  }
 
-  return prisma.$transaction(async (tx) => {
     await tx.user.delete({ where: { id: userId } });
     await logInTx(tx, actor, 'user_deleted', 'users', userId, { email: user.email });
     return { id: userId };
   });
+
+  const permissionCache = require('../utils/permissionCache');
+  permissionCache.invalidate(userId);
+  return result;
 }
 
 module.exports = { listUsers, createUser, updateUser, deleteUser };

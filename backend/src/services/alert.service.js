@@ -29,7 +29,7 @@ exports.getAlerts = async (user, filters = {}, page = 1, limit = 10, skip = 0) =
     where.is_read = filters.isRead === 'true' || filters.isRead === true;
   }
 
-  const [items, total] = await Promise.all([
+  const [items, total, unreadCount] = await Promise.all([
     prisma.alert.findMany({
       where,
       skip,
@@ -40,9 +40,10 @@ exports.getAlerts = async (user, filters = {}, page = 1, limit = 10, skip = 0) =
       orderBy: { created_at: 'desc' },
     }),
     prisma.alert.count({ where }),
+    prisma.alert.count({ where: { ...where, is_read: false } }),
   ]);
 
-  return { items, total };
+  return { items, total, unreadCount };
 };
 
 /**
@@ -50,13 +51,14 @@ exports.getAlerts = async (user, filters = {}, page = 1, limit = 10, skip = 0) =
  * Out-of-scope or non-existent → 404 (identical, per §5.5).
  */
 exports.markRead = async (alertId, user) => {
-  const scopeWhere = projectScopeWhere(user);
+  const { childScopeWhere } = require('../utils/scope');
+  const scopeWhere = childScopeWhere(user, 'project');
 
   // Find alert with scope filter through project
   const alert = await prisma.alert.findFirst({
     where: {
       id: alertId,
-      ...(Object.keys(scopeWhere).length > 0 ? { project: scopeWhere } : {}),
+      ...scopeWhere,
     },
   });
 
@@ -78,12 +80,9 @@ exports.markRead = async (alertId, user) => {
  * updateMany with scope filter on project.
  */
 exports.markAllRead = async (user) => {
-  const scopeWhere = projectScopeWhere(user);
-  const where = { is_read: false };
-
-  if (Object.keys(scopeWhere).length > 0) {
-    where.project = scopeWhere;
-  }
+  const { childScopeWhere } = require('../utils/scope');
+  const scopeWhere = childScopeWhere(user, 'project');
+  const where = { is_read: false, ...scopeWhere };
 
   const result = await prisma.alert.updateMany({
     where,
