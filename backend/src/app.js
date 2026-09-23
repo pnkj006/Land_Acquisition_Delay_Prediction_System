@@ -11,17 +11,44 @@ const swaggerOptions = require('./config/swagger');
 const errorMiddleware = require('./middlewares/error.middleware');
 
 const app = express();
-expressJSDocSwagger(app)(swaggerOptions);
+
+/**
+ * Trust proxy (G3).
+ * TRUST_PROXY unset / "false" -> false (backend exposed directly; X-Forwarded-For is ignored)
+ * TRUST_PROXY=1 (or any number) -> trust that many proxy hops (e.g. 1 on Render, 1 for a single ALB)
+ * Anything else is passed through as-is (e.g. "loopback" or a CIDR list).
+ * Avoid "true": it trusts every hop and lets clients spoof their IP.
+ */
+const trustProxyEnv = process.env.TRUST_PROXY;
+let trustProxy = false;
+if (trustProxyEnv && trustProxyEnv !== 'false') {
+  trustProxy = /^\d+$/.test(trustProxyEnv) ? Number(trustProxyEnv) : trustProxyEnv;
+}
+app.set('trust proxy', trustProxy);
+
+// API docs: not exposed in production.
+if (process.env.NODE_ENV !== 'production') {
+  expressJSDocSwagger(app)(swaggerOptions);
+}
 
 app.use(helmet());
-app.use(cors());
-// Custom Morgan format to ensure no request bodies are logged, and Authorization headers are redacted
-morgan.token('redacted-headers', (req) => {
-  const headers = { ...req.headers };
-  if (headers.authorization) headers.authorization = '[REDACTED]';
-  return JSON.stringify(headers);
-});
+
+// CORS (F-04): origin allowlist from CORS_ORIGINS (comma-separated). Credentials are not enabled
+// because tokens are sent in the Authorization header.
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    // Disallowed origins simply get no CORS headers (no error thrown -> no 500).
+    origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
+  })
+);
+
+// Request logging: method, URL, status, size, time only. No headers or bodies are logged.
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
+
 app.use('/api/v1/auth/signup', (req, res, next) => {
   const { ALLOW_PUBLIC_SIGNUP } = require('./config/env');
   if (!ALLOW_PUBLIC_SIGNUP) {
@@ -30,8 +57,8 @@ app.use('/api/v1/auth/signup', (req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Health check — public
 app.get('/api/v1/health', (req, res) => {

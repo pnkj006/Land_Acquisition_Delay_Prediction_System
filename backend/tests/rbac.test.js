@@ -92,10 +92,10 @@ describe('RBAC Permission Service', () => {
   });
 
   describe('Route Coverage Meta-test (Live Stack)', () => {
-    it('verifies all mounted routes have an RBAC guard or are whitelisted', () => {
+    it('verifies all mounted routes have authenticate and an RBAC guard, or are explicitly whitelisted', () => {
       const app = require('../src/app');
       const unguarded = [];
-      const whitelisted = ['/api/v1/health', '/api/v1/auth/login', '/api/v1/auth/me', '/api/v1/auth/logout'];
+      const whitelisted = ['/api/v1/health', '/api/v1/auth/login', '/api/v1/auth/signup', '/api/v1/config'];
 
       const traverseStack = (stack, basePath = '') => {
         for (const layer of stack) {
@@ -103,17 +103,17 @@ describe('RBAC Permission Service', () => {
             const path = basePath + layer.route.path;
             const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
             
-            // Check if whitelisted
             if (whitelisted.includes(path)) continue;
 
             const hasGuard = layer.route.stack.some(m => m.handle && m.handle.isRbacGuard === true);
-            if (!hasGuard) {
+            const hasAuth = layer.route.stack.some(m => m.handle && m.handle.name === 'authenticate');
+            
+            if (!hasGuard || !hasAuth) {
               unguarded.push(`${methods} ${path}`);
             }
           } else if (layer.name === 'router' && layer.handle.stack) {
             let nextPath = basePath;
             if (layer.regexp.source !== '^\\\\/?(?=\\\\/|$)') {
-              // extract path from regexp roughly
               const match = layer.regexp.toString().match(new RegExp('\\\\/(api\\\\/v1\\\\/[a-zA-Z0-9_-]+)'));
               if (match) {
                 nextPath = '/' + match[1].replace(/\\\\\\//g, '/');
@@ -124,9 +124,7 @@ describe('RBAC Permission Service', () => {
         }
       };
 
-      if (app._router && app._router.stack) {
-        traverseStack(app._router.stack);
-      }
+      if (app._router && app._router.stack) traverseStack(app._router.stack);
       expect(unguarded).toEqual([]);
     });
   });

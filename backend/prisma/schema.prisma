@@ -93,9 +93,7 @@ model User {
   permissions         UserPermission[]
   project_assignments ProjectAssignment[]
 
-  // Legacy relations (kept until migration 2)
-  managed_projects      Project[]              @relation("ManagedProjects")
-  administered_projects Project[]              @relation("AdministeredProjects")
+  // Legacy relations removed
 
   recorded_status_updates ProjectStatusHistory[]
   audit_logs              AuditLog[]
@@ -119,9 +117,7 @@ model Project {
   stakeholder_responsiveness   StakeholderResponsiveness?
   historical_performance_score Float?
   // Legacy columns — removed in migration 2
-  administrator_id             Int?
-  project_manager_id           Int?
-  manager                      String?
+  // Legacy fields removed
   location                     String?
   state                        String?
   district                     String?
@@ -137,8 +133,7 @@ model Project {
   updated_at DateTime @updatedAt
 
   // Legacy relations — removed in migration 2
-  administrator   User? @relation("AdministeredProjects", fields: [administrator_id], references: [id])
-  project_manager User? @relation("ManagedProjects", fields: [project_manager_id], references: [id])
+  // Legacy relations removed
 
   // RBAC back-relation
   project_assignments ProjectAssignment[]
@@ -153,7 +148,7 @@ model Project {
   @@index([project_type])
   @@index([state])
   @@index([district])
-  @@index([project_manager_id])
+
 }
 
 model ProjectAssignment {

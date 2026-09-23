@@ -8,6 +8,7 @@ const { getUserPermissions, setUserPermissions } = require('../src/services/perm
 
 describe('RBAC Real DB Integration Tests', () => {
   let testUser;
+  let adminUser;
 
   beforeAll(async () => {
     require('dotenv').config({ path: '.env.test' });
@@ -32,12 +33,26 @@ describe('RBAC Real DB Integration Tests', () => {
         is_active: true
       }
     });
+
+    const adminEmail = `admin_rbac_${Date.now()}@example.com`;
+    adminUser = await prisma.user.create({
+      data: {
+        name: 'Admin Test User',
+        email: adminEmail,
+        password_hash: 'hashed',
+        role: 'ADMIN',
+        is_active: true
+      }
+    });
   });
 
   afterAll(async () => {
     if (testUser) {
       await prisma.userPermission.deleteMany({ where: { user_id: testUser.id } });
       await prisma.user.delete({ where: { id: testUser.id } });
+    }
+    if (adminUser) {
+      await prisma.user.delete({ where: { id: adminUser.id } });
     }
     await prisma.$disconnect();
   });
@@ -52,21 +67,21 @@ describe('RBAC Real DB Integration Tests', () => {
 
   it('setUserPermissions successfully grants a permission in a transaction', async () => {
     // Admin actor
-    const actor = { id: testUser.id, email: 'admin@example.com' }; // mock actor just for audit
+    const actor = { id: adminUser.id, email: adminUser.email, role: 'ADMIN' }; // mock actor just for audit
     
-    // We assume 'projects:write' is grantable for STAFF in config/permissions.js
+    // We assume 'stages_events:write' is grantable for STAFF in config/permissions.js
     // If it is, this succeeds. We will try assigning a valid grant.
-    const result = await setUserPermissions(actor, testUser.id, [{ resource: 'csv_import', action: 'write' }]);
+    const result = await setUserPermissions(actor, testUser.id, [{ resource: 'stages_events', action: 'write' }]);
     
     expect(result.changed).toBe(true);
-    expect(result.after).toContain('csv_import:write');
+    expect(result.after).toContain('stages_events:write');
 
     // Verify it saved to DB
     const dbUser = await prisma.user.findUnique({
       where: { id: testUser.id },
       include: { permissions: true }
     });
-    const hasPerm = dbUser.permissions.some(p => p.resource === 'csv_import' && p.action === 'write');
+    const hasPerm = dbUser.permissions.some(p => p.resource === 'stages_events' && p.action === 'write');
     expect(hasPerm).toBe(true);
   });
 });

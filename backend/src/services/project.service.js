@@ -115,7 +115,7 @@ exports.createProject = async (data, actor) => {
   }
 
   // Strip fields that no longer exist post-migration-2 from body
-  const { administrator_id, project_manager_id, ...rest } = data;
+  const rest = data;
   const project = await prisma.project.create({
     data: { ...rest, project_id: projectId },
   });
@@ -145,7 +145,7 @@ exports.updateProject = async (projectIdParam, data, user) => {
   }
 
   // Strip removed fields from the update body
-  const { administrator_id, project_manager_id, ...updateData } = data;
+  const updateData = data;
 
   const updated = await prisma.project.update({
     where: { id: existing.id },

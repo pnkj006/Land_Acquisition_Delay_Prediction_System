@@ -11,10 +11,8 @@ exports.getAssignments = async (req, res, next) => {
       return sendError(res, 'Invalid project ID', 'INVALID_PARAM', 400);
     }
     
-    // Note: Project existence is usually verified by the scope middleware or higher up,
-    // but assignmentService will also just return [] if no assignments.
-    // If we wanted to ensure the project exists and is in scope, we would call assertProjectInScope here.
-    // Assuming admin-only or scoped earlier. 
+    const { assertProjectInScope } = require('../utils/scope');
+    await assertProjectInScope(req.user, projectId);
 
     const users = await assignmentService.getProjectAssignments(projectId);
     return sendSuccess(res, users);

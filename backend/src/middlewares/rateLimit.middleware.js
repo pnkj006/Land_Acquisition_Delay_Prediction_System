@@ -16,11 +16,13 @@ const limiter = rateLimit({
       error: { code: 'RATE_LIMIT_EXCEEDED', details: null },
     });
   },
+  keyGenerator: (req) => {
+    let ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    ip = ip.replace(/^::ffff:/, '');
+    if (ip === '::1') ip = '127.0.0.1';
+    return ip;
+  },
+  validate: { trustProxy: false, xForwardedForHeader: false, default: false }
 });
 
-module.exports = (req, res, next) => {
-  if (process.env.NODE_ENV === 'test') {
-    return next();
-  }
-  return limiter(req, res, next);
-};
+module.exports = limiter;

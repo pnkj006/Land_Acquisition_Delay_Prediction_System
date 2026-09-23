@@ -1,17 +1,15 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-db}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-db}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-land_acquisition_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5433:5432" # host 5433 avoids clashing with a local Postgres
+      - "127.0.0.1:5433:5432" # host-local only; 5433 avoids clashing with a local Postgres
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-db} -d $${POSTGRES_DB:-land_acquisition_db}" ]
       interval: 5s
@@ -28,7 +26,7 @@ services:
       POSTGRES_PASSWORD: db
       POSTGRES_DB: land_acquisition_test
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432" # host-local only
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U db -d land_acquisition_test" ]
       interval: 5s
@@ -40,8 +38,7 @@ services:
     restart: unless-stopped
     environment:
       X_INTERNAL_TOKEN: ${X_INTERNAL_TOKEN:?Set X_INTERNAL_TOKEN in .env}
-    ports:
-      - "8000:8000"
+
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')" ]
       interval: 10s
@@ -60,10 +57,14 @@ services:
       NODE_ENV: production
       PORT: 5000
       # Note: uses "db:5432" internally within the docker network, not 5433
-      DATABASE_URL: postgresql://${POSTGRES_USER:-db}:${POSTGRES_PASSWORD:-db}@db:5432/${POSTGRES_DB:-land_acquisition_db}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-db}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-land_acquisition_db}?schema=public
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       X_INTERNAL_TOKEN: ${X_INTERNAL_TOKEN:?Set X_INTERNAL_TOKEN in .env}
       ML_SERVICE_URL: http://ml:8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      # Number of trusted reverse-proxy hops in front of the backend.
+      # false when exposed directly (local compose); 1 behind Render's load balancer or a single ALB.
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
       - "5000:5000"
 

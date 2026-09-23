@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+import os
+import hmac
+from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from typing import Optional
 
@@ -7,8 +9,17 @@ from explainability.shap_explainer import explain_project
 
 
 # ============================================================
-# APP
+# APP & AUTH
 # ============================================================
+
+X_INTERNAL_TOKEN = os.environ.get("X_INTERNAL_TOKEN")
+if not X_INTERNAL_TOKEN:
+    raise RuntimeError("X_INTERNAL_TOKEN environment variable is not set")
+
+def verify_internal_token(x_internal_token: Optional[str] = Header(None)):
+    if not x_internal_token or not hmac.compare_digest(x_internal_token, X_INTERNAL_TOKEN):
+        raise HTTPException(status_code=403, detail="Invalid or missing internal token")
+    return True
 
 app = FastAPI(
     title="Land Acquisition Delay Prediction API",
@@ -64,7 +75,7 @@ def health():
 # PREDICTION + SHAP
 # ============================================================
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(verify_internal_token)])
 def predict(project: ProjectInput):
 
     try:

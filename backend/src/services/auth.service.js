@@ -22,7 +22,7 @@ async function login(email, password) {
       include: { permissions: true }
     });
 
-    if (!user) {
+    if (!user || user.is_active === false) {
       const err = new Error('Invalid credentials');
       err.statusCode = 401;
       throw err;
@@ -35,7 +35,7 @@ async function login(email, password) {
       throw err;
     }
 
-    const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
+    const token = signToken({ id: user.id, email: user.email });
 
     const { getEffectivePermissions } = require('../config/permissions');
     const { permissions, scope } = getEffectivePermissions(user);
@@ -108,7 +108,7 @@ async function getMe(userId) {
 async function signup(data) {
   try {
     const user = await userService.createUser(data);
-    const token = signToken({ id: user.id, email: user.email, role: user.role, name: user.name });
+    const token = signToken({ id: user.id, email: user.email });
 
     const { getEffectivePermissions } = require('../config/permissions');
     const { permissions, scope } = getEffectivePermissions(user);
