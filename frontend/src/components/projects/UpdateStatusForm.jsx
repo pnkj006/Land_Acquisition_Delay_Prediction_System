@@ -5,7 +5,6 @@ import Select from '../common/Select.jsx'
 import Input from '../common/Input.jsx'
 import { PROJECT_STAGES } from '../../utils/constants'
 import { updateProjectStatus } from '../../api/projects.api'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useProjects } from '../../hooks/useProjects.js'
 
 const STAGE_VALUES = {
@@ -50,11 +49,10 @@ export default function UpdateStatusForm({
   const {
     projects,
     loading: projectsLoading,
+    refetch: refetchProjects,
   } = useProjects({
     pageSize: 100,
   })
-
-  const queryClient = useQueryClient()
 
   const [projectId, setProjectId] = useState('')
   const [stage, setStage] = useState(PROJECT_STAGES[0])
@@ -83,55 +81,9 @@ export default function UpdateStatusForm({
     setSubmitted(false)
   }, [open, project, projects])
 
-  const mutation = useMutation({
-    mutationFn: ({ id, payload }) =>
-      updateProjectStatus(id, payload),
+  const [submitting, setSubmitting] = useState(false)
 
-    onSuccess: async () => {
-      /*
-       * Refresh project list.
-       */
-      await queryClient.invalidateQueries({
-        queryKey: ['projects'],
-      })
-
-      /*
-       * Refresh the currently opened project.
-       */
-      if (projectId) {
-        await queryClient.invalidateQueries({
-          queryKey: ['projects', projectId],
-        })
-      }
-
-      setSubmitted(true)
-
-      setTimeout(() => {
-        setSubmitted(false)
-        setNote('')
-        onClose()
-      }, 900)
-    },
-
-    onError: (err) => {
-      if (err?.name === 'AbortError') return
-
-      console.error(
-        'Update status failed:',
-        err
-      )
-
-      alert(
-        `Update failed: ${
-          err?.info?.message ||
-          err?.message ||
-          'Unknown error'
-        }`
-      )
-    },
-  })
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     const targetId =
@@ -143,27 +95,37 @@ export default function UpdateStatusForm({
       return
     }
 
-    /*
-     * Convert frontend display value:
-     *
-     * "Land Acquisition"
-     *
-     * into backend Prisma enum:
-     *
-     * "LAND_ACQUISITION"
-     */
     const backendStage =
       STAGE_VALUES[stage] || stage
 
-    mutation.mutate({
-      id: targetId,
-      payload: {
-        stage: backendStage,
-      },
-    })
-  }
+    setSubmitting(true)
+    try {
+      await updateProjectStatus(targetId, { stage: backendStage })
+      
+      if (refetchProjects) {
+        await refetchProjects()
+      }
 
-  const submitting = mutation.isPending
+      setSubmitted(true)
+
+      setTimeout(() => {
+        setSubmitted(false)
+        setNote('')
+        onClose()
+      }, 900)
+    } catch (err) {
+      console.error('Update status failed:', err)
+      alert(
+        `Update failed: ${
+          err?.info?.message ||
+          err?.message ||
+          'Unknown error'
+        }`
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Modal

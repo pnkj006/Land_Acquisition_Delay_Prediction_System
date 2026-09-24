@@ -1,55 +1,65 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect, useCallback } from 'react'
 import {
   getAllRecommendations,
   updateRecommendationStatus,
   generateRecommendations,
 } from '../api/recommendations.api'
 
-/**
- * Recommendations workspace hook. Mirrors the useAlerts/useFieldUpdates
- * convention: fetch callback + isMounted guard + refetch for Retry.
- * Status updates only flip the UI AFTER the service call resolves — on
- * failure the card keeps its server state and the caller shows an error.
- */
 export function useRecommendations() {
-  const queryClient = useQueryClient()
+  const [data, setData] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [updatingId, setUpdatingId] = useState(null)
+  const [generating, setGenerating] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
-  const query = useQuery({
-    queryKey: ['recommendations'],
-    queryFn: ({ signal }) => getAllRecommendations({ signal }),
-  })
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await getAllRecommendations({})
+      setData(res)
+      setLastUpdated(new Date())
+    } catch (err) {
+      setError(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
-  const mutation = useMutation({
-    mutationFn: ({ id, status }) => updateRecommendationStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recommendations'] })
-    },
-  })
-  const generateMutation = useMutation({
-  mutationFn: (projectId) => generateRecommendations(projectId),
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['recommendations'] })
-  },
-})
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
-return {
-  recommendations: query.data?.data || [],
-  loading: query.isLoading,
-  error: query.error,
-  refetch: query.refetch,
+  const updateStatus = async (id, status) => {
+    setUpdatingId(id)
+    try {
+      await updateRecommendationStatus(id, status)
+      await fetchData()
+    } finally {
+      setUpdatingId(null)
+    }
+  }
 
-  updateStatus: (id, status) =>
-    mutation.mutateAsync({ id, status }),
+  const generateRecs = async (projectId) => {
+    setGenerating(true)
+    try {
+      await generateRecommendations(projectId)
+      await fetchData()
+    } finally {
+      setGenerating(false)
+    }
+  }
 
-  updatingId: mutation.variables?.id || null,
-
-  generateRecommendations: (projectId) =>
-    generateMutation.mutateAsync(projectId),
-
-  generating: generateMutation.isPending,
-
-  lastUpdated: query.dataUpdatedAt
-    ? new Date(query.dataUpdatedAt)
-    : null,
-}
+  return {
+    recommendations: data?.data || [],
+    loading: isLoading,
+    error,
+    refetch: fetchData,
+    updateStatus,
+    updatingId,
+    generateRecommendations: generateRecs,
+    generating,
+    lastUpdated,
+  }
 }

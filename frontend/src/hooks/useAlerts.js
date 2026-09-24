@@ -1,17 +1,35 @@
+import { useState, useEffect, useCallback } from 'react'
 import { getAlerts } from '../api/alerts.api'
-import { useQuery } from '@tanstack/react-query'
 
 export function useAlerts(filters = {}) {
-  const query = useQuery({
-    queryKey: ['alerts', filters],
-    queryFn: ({ signal }) => getAlerts({ ...filters, signal }),
-  })
+  const [data, setData] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const stringifiedFilters = JSON.stringify(filters)
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await getAlerts(JSON.parse(stringifiedFilters))
+      setData(res)
+    } catch (err) {
+      setError(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [stringifiedFilters])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   return { 
-    alerts: query.data?.data || [], 
-    unreadCount: query.data?.unreadCount || 0,
-    loading: query.isLoading, 
-    error: query.error, 
-    refetch: query.refetch 
+    alerts: data?.data || [], 
+    unreadCount: data?.unreadCount || 0,
+    loading: isLoading, 
+    error, 
+    refetch: fetchData 
   }
 }

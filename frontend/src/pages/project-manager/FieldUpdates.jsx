@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight,
   CalendarClock,
@@ -76,7 +75,6 @@ const DEFAULT_FILTERS = {
  */
 export default function FieldUpdates() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   const {
     updates,
@@ -85,7 +83,7 @@ export default function FieldUpdates() {
     refetch,
   } = useFieldUpdates()
 
-  const { projects } = useProjects({ pageSize: 100 })
+  const { projects, refetch: refetchProjects } = useProjects({ pageSize: 100 })
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [submitting, setSubmitting] = useState(false)
@@ -191,16 +189,9 @@ export default function FieldUpdates() {
        * Refresh project list so current_stage
        * immediately changes throughout the application.
        */
-      await queryClient.invalidateQueries({
-        queryKey: ['projects'],
-      })
-
-      /*
-       * Refresh individual project details.
-       */
-      await queryClient.invalidateQueries({
-        queryKey: ['project', payload.projectId],
-      })
+      if (refetchProjects) {
+        await refetchProjects()
+      }
 
       const selectedProject = projects.find(
         (p) => p.id === payload.projectId,
