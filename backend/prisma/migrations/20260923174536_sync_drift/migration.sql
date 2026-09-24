@@ -1,2 +1,2 @@
 -- DropIndex
-DROP INDEX "rp_project_id_desc";
+DROP INDEX IF EXISTS "rp_project_id_desc";

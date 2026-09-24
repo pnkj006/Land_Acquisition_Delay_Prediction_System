@@ -93,9 +93,7 @@ model User {
   permissions         UserPermission[]
   project_assignments ProjectAssignment[]
 
-  // Legacy relations (kept until migration 2)
-  managed_projects      Project[] @relation("ManagedProjects")
-  administered_projects Project[] @relation("AdministeredProjects")
+  // Legacy relations removed
 
   recorded_status_updates ProjectStatusHistory[]
   audit_logs              AuditLog[]
@@ -151,7 +149,6 @@ model Project {
   @@index([project_type])
   @@index([state])
   @@index([district])
-  @@index([project_manager_id])
   @@map("projects")
 }
 

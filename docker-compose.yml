@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5433:5432" # host-local only; 5433 avoids clashing with a local Postgres
+      - "5433:5432"   # host:container -> makes localhost:5433 work
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-db} -d $${POSTGRES_DB:-land_acquisition_db}" ]
       interval: 5s

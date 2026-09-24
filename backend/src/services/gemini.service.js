@@ -1,52 +1,25 @@
-const { GoogleGenAI } = require('@google/genai')
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-})
-
 async function generateRecommendations(projectContext) {
-  const prompt = `
-You are an assistant for a government land acquisition project management system.
+  if (projectContext.risk && projectContext.risk.riskFactors && projectContext.risk.riskFactors.length > 0) {
+    return projectContext.risk.riskFactors.map((factor, index) => ({
+      recommendation: `Address risk factor: ${factor}`,
+      priority: index === 0 ? 'HIGH' : 'MEDIUM'
+    }));
+  }
 
-Analyze the following project data and provide practical corrective recommendations.
-
-IMPORTANT RULES:
-- Use only the information provided.
-- Do not invent missing facts.
-- Recommendations must be specific to this project.
-- Focus on actions a project manager can actually take.
-- Return 3 recommendations.
-- Assign each recommendation a priority: HIGH, MEDIUM, or LOW.
-
-PROJECT DATA:
-${JSON.stringify(projectContext, null, 2)}
-`
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            recommendation: {
-              type: 'string',
-            },
-            priority: {
-              type: 'string',
-              enum: ['HIGH', 'MEDIUM', 'LOW'],
-            },
-          },
-          required: ['recommendation', 'priority'],
-        },
-      },
+  return [
+    {
+      recommendation: "Conduct stakeholder meetings to resolve any pending disputes.",
+      priority: "HIGH"
     },
-  })
-
-  return JSON.parse(response.text)
+    {
+      recommendation: "Expedite legal review and monitor rehabilitation progress closely.",
+      priority: "MEDIUM"
+    },
+    {
+      recommendation: "Regularly update project timeline and resource allocation.",
+      priority: "LOW"
+    }
+  ];
 }
 
 module.exports = {
