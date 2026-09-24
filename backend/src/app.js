@@ -71,6 +71,7 @@ app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/projects', require('./routes/project.routes'));
 app.use('/api/v1/projects', require('./routes/status.routes'));
 app.use('/api/v1/projects', require('./routes/risk.routes'));
+app.use('/api/v1/projects', require('./routes/stageProgress.routes'));
 app.use('/api/v1/dashboard', require('./routes/dashboard.routes'));
 app.use('/api/v1/analytics', require('./routes/analytics.routes'));
 app.use('/api/v1/alerts', require('./routes/alert.routes'));
@@ -80,6 +81,7 @@ app.use('/api/v1/audit-logs', require('./routes/audit.routes'));
 app.use('/api/v1/map', require('./routes/map.routes'));
 // Recommendation routes mounted at root (paths include /projects/:id/recommendations and /recommendations/:id)
 app.use('/api/v1', require('./routes/recommendation.routes'));
+
 
 // 404 fallback
 app.use((req, res) => {

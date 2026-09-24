@@ -1,5 +1,6 @@
 import { RISK_LEVELS } from '../utils/constants'
-
+import { fetchClient } from './fetchClient'
+import { getRiskPrediction } from './risk.api'
 // ---------------------------------------------------------------------------
 // Mock data. Structured to mirror what a real backend would return so that
 // swapping these functions for real HTTP calls (axios/fetch) later requires
@@ -137,31 +138,90 @@ export const MOCK_PROJECTS = [
   },
 ]
 
-function simulateRequest(payload, delay = 400) {
+/*function simulateRequest(payload, delay = 400) {
   return new Promise((resolve) => {
     setTimeout(() => resolve(payload), delay)
   })
-}
+}*/
 
-import { fetchClient } from './fetchClient'
+
 
 function mapProject(p) {
   if (!p) return null
+
+  const riskScore =
+    p.risk_score != null
+      ? Number(p.risk_score)
+      : 0
+
   return {
+    // Basic project information
     id: p.project_id,
     name: p.location || p.project_id,
     type: p.project_type,
     district: p.district,
     stage: p.current_stage || '—',
-    riskLevel: p.risk_score ? (p.risk_score >= 70 ? RISK_LEVELS.HIGH : p.risk_score >= 40 ? RISK_LEVELS.MEDIUM : RISK_LEVELS.LOW) : RISK_LEVELS.LOW,
-    delayProbability: p.risk_score ? p.risk_score / 100 : 0,
-    riskScore: p.risk_score || 0,
-    totalLandArea: p.land_area_hectares ? `${p.land_area_hectares} ha` : '—',
-    affectedFamilies: p.number_of_affected_families || 0,
+
+    // Risk information from backend
+    riskScore,
+
+    riskLevel:
+      riskScore >= 70
+        ? RISK_LEVELS.HIGH
+        : riskScore >= 40
+          ? RISK_LEVELS.MEDIUM
+          : RISK_LEVELS.LOW,
+
+    // Until the projects endpoint provides a separate
+    // delay_probability field, use risk score as the displayed
+    // percentage.
+    delayProbability: riskScore / 100,
+
+    // Project information
+    totalLandArea:
+      p.land_area_hectares != null
+        ? `${p.land_area_hectares} ha`
+        : '—',
+
+    affectedFamilies:
+      p.number_of_affected_families ?? 0,
+
     startDate: p.created_at,
+
     lat: p.latitude,
     lng: p.longitude,
-    status: p.delay_status || 'On Time'
+
+    status: p.delay_status || 'ON_TIME',
+
+    // ML/input fields
+    land_area_hectares: p.land_area_hectares,
+    number_of_affected_families:
+      p.number_of_affected_families,
+
+    approval_timeline_days:
+      p.approval_timeline_days,
+
+    legal_disputes_count:
+      p.legal_disputes_count,
+
+    rehabilitation_progress_pct:
+      p.rehabilitation_progress_pct,
+
+    historical_performance_score:
+      p.historical_performance_score,
+
+    altitude_m: p.altitude_m,
+    latitude: p.latitude,
+    longitude: p.longitude,
+
+    compensation_status:
+      p.compensation_status,
+
+    possession_status:
+      p.possession_status,
+
+    stakeholder_responsiveness:
+      p.stakeholder_responsiveness,
   }
 }
 
@@ -170,15 +230,65 @@ function mapProject(p) {
  */
 export async function getProjects(filters = {}) {
   const params = new URLSearchParams()
+
   if (filters.page) params.append('page', filters.page)
   if (filters.pageSize) params.append('limit', filters.pageSize)
   if (filters.search) params.append('search', filters.search)
   if (filters.riskLevel) params.append('riskLevel', filters.riskLevel)
   if (filters.stage) params.append('stage', filters.stage)
-  
+
   const res = await fetchClient(`/projects?${params.toString()}`)
+
+  console.log('PROJECTS API RESPONSE:', res)
+
+  const projects = res.data.map(mapProject)
+
+  // Fetch the actual ML prediction for every project
+const projectsWithRisk = await Promise.all(
+  projects.map(async (project) => {
+    try {
+      const risk = await getRiskPrediction(project.id)
+
+      console.log(`ML RISK FOR ${project.id}:`, risk)
+
+      // ML risk score rounded to 2 decimal places
+      const riskScore = Number(
+        Number(risk?.riskScore ?? 0).toFixed(2)
+      )
+
+      // ML probability remains decimal (0.42 = 42%)
+      const delayProbability = Number(
+        Number(risk?.probability ?? 0).toFixed(4)
+      )
+
+      const riskLevel =
+        riskScore >= 70
+          ? RISK_LEVELS.HIGH
+          : riskScore >= 40
+            ? RISK_LEVELS.MEDIUM
+            : RISK_LEVELS.LOW
+
+      return {
+        ...project,
+
+        // Replace database risk values with ML values
+        riskScore,
+        delayProbability,
+        riskLevel,
+      }
+    } catch (error) {
+      console.error(
+        `Failed to fetch risk for ${project.id}:`,
+        error
+      )
+
+      return project
+    }
+  })
+)
+
   return {
-    data: res.data.map(mapProject),
+    data: projectsWithRisk,
     total: res.pagination?.total || 0,
     page: res.pagination?.page || 1,
     pageSize: res.pagination?.limit || 5,
@@ -194,7 +304,64 @@ export async function getProjectById(projectId) {
 export async function updateProjectStatus(projectId, payload) {
   const res = await fetchClient(`/projects/${projectId}/status`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: payload,
   })
   return { success: true, projectId, ...res.data }
+}
+export async function updateProject(projectId, payload) {
+  const res = await fetchClient(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+
+  return {
+    data: res.data,
+  }
+}
+export async function getStageProgress(projectId) {
+  const res = await fetchClient(
+    `/projects/${projectId}/stage-progress`,
+  )
+
+  return {
+    data: res.data,
+  }
+}
+
+export async function updateStageProgress(projectId, payload) {
+  const res = await fetchClient(
+    `/projects/${projectId}/stage-progress`,
+    {
+      method: 'PATCH',
+      body: payload,
+    },
+  )
+
+  return {
+    data: res.data,
+  }
+}
+export async function createProject(payload) {
+  const res = await fetchClient('/projects', {
+    method: 'POST',
+    body: payload,
+  })
+
+  return {
+    data: res.data,
+  }
+}
+
+export async function importProjects(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetchClient('/imports/projects', {
+    method: 'POST',
+    body: formData,
+  })
+
+  return {
+    data: res.data,
+  }
 }

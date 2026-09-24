@@ -79,12 +79,12 @@ enum PredictionStatus {
 // ─────────────────────────────
 
 model User {
-  id            Int      @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   name          String
-  email         String   @unique
+  email         String  @unique
   password_hash String
   role          Role
-  is_active     Boolean  @default(true)
+  is_active     Boolean @default(true)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -93,25 +93,28 @@ model User {
   permissions         UserPermission[]
   project_assignments ProjectAssignment[]
 
-  // Legacy relations removed
+  // Legacy relations (kept until migration 2)
+  managed_projects      Project[] @relation("ManagedProjects")
+  administered_projects Project[] @relation("AdministeredProjects")
 
   recorded_status_updates ProjectStatusHistory[]
   audit_logs              AuditLog[]
   imports                 ImportHistory[]
   alerts                  Alert[]
+  updated_stage_progress  StageProgress[]
 
   @@map("users")
 }
 
 model Project {
-  id                           Int      @id @default(autoincrement())
-  project_id                   String   @unique
+  id                           Int                        @id @default(autoincrement())
+  project_id                   String                     @unique
   project_type                 ProjectType?
   land_area_hectares           Float?
   number_of_affected_families  Int?
   compensation_status          String?
   approval_timeline_days       Int?
-  legal_disputes_count         Int?     @default(0)
+  legal_disputes_count         Int?                       @default(0)
   possession_status            String?
   rehabilitation_progress_pct  Float?
   stakeholder_responsiveness   StakeholderResponsiveness?
@@ -128,6 +131,7 @@ model Project {
   delay_days                   Int?
   risk_score                   Float?
   current_stage                ProjectStage?
+  stage_progress               StageProgress[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -143,12 +147,12 @@ model Project {
   recommendations  Recommendation[]
   alerts           Alert[]
 
-  @@map("projects")
   @@index([risk_score])
   @@index([project_type])
   @@index([state])
   @@index([district])
-
+  @@index([project_manager_id])
+  @@map("projects")
 }
 
 model ProjectAssignment {
@@ -176,46 +180,51 @@ model UserPermission {
 }
 
 model ProjectStatusHistory {
-  id                           Int      @id @default(autoincrement())
-  project_id                   Int
-  stage                        ProjectStage?
-  compensation_status          String?
-  approval_timeline_days       Int?
-  legal_disputes_count         Int?
-  possession_status            String?
-  rehabilitation_progress_pct  Float?
-  stakeholder_responsiveness   StakeholderResponsiveness?
-  recorded_by                  Int?
-  recorded_at                  DateTime @default(now())
+  id                          Int                        @id @default(autoincrement())
+  project_id                  Int
+  stage                       ProjectStage?
+  compensation_status         String?
+  approval_timeline_days      Int?
+  legal_disputes_count        Int?
+  possession_status           String?
+  rehabilitation_progress_pct Float?
+  stakeholder_responsiveness  StakeholderResponsiveness?
+  recorded_by                 Int?
+  recorded_at                 DateTime                   @default(now())
 
   project          Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
   recorded_by_user User?   @relation(fields: [recorded_by], references: [id])
 
-  @@map("project_status_history")
   @@index([project_id])
+  @@map("project_status_history")
 }
 
 model RiskPrediction {
-  id                Int       @id @default(autoincrement())
-  project_id        Int
-  risk_score        Float?
-  risk_level        RiskLevel?
-  top_factors       Json?
-  model_version     String?
-  predicted_at      DateTime  @default(now())
+  id         Int @id @default(autoincrement())
+  project_id Int
 
-  status            PredictionStatus?
-  started_at        DateTime?
-  finished_at       DateTime?
-  error_message     String?          @db.VarChar(500)
+  prediction   String?
+  probability  Float?
+  risk_score   Float?
+  risk_level   RiskLevel?
+  threshold    Float?
+  risk_factors Json?
+
+  model_version String?
+
+  predicted_at  DateTime          @default(now())
+  status        PredictionStatus?
+  started_at    DateTime?
+  finished_at   DateTime?
+  error_message String?           @db.VarChar(500)
 
   project         Project          @relation(fields: [project_id], references: [id], onDelete: Cascade)
   stage_risks     StageRisk[]
   recommendations Recommendation[]
 
-  @@map("risk_predictions")
   @@index([project_id])
   @@index([predicted_at])
+  @@map("risk_predictions")
 }
 
 model StageRisk {
@@ -226,8 +235,8 @@ model StageRisk {
 
   prediction RiskPrediction @relation(fields: [prediction_id], references: [id], onDelete: Cascade)
 
-  @@map("stage_risks")
   @@index([prediction_id])
+  @@map("stage_risks")
 }
 
 model Recommendation {
@@ -243,9 +252,9 @@ model Recommendation {
   project    Project         @relation(fields: [project_id], references: [id], onDelete: Cascade)
   prediction RiskPrediction? @relation(fields: [prediction_id], references: [id])
 
-  @@map("recommendations")
   @@index([project_id])
   @@index([status])
+  @@map("recommendations")
 }
 
 model Alert {
@@ -261,11 +270,11 @@ model Alert {
   project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [user_id], references: [id])
 
-  @@map("alerts")
   @@index([project_id])
   @@index([user_id])
   @@index([is_read])
   @@index([severity])
+  @@map("alerts")
 }
 
 model AuditLog {
@@ -282,10 +291,10 @@ model AuditLog {
 
   user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
-  @@map("audit_logs")
   @@index([user_id])
   @@index([action])
   @@index([created_at])
+  @@map("audit_logs")
 }
 
 model ImportHistory {
@@ -301,4 +310,20 @@ model ImportHistory {
   uploader User? @relation(fields: [imported_by], references: [id], onDelete: SetNull)
 
   @@map("import_history")
+}
+
+model StageProgress {
+  id           Int          @id @default(autoincrement())
+  project_id   Int
+  stage        ProjectStage
+  progress_pct Float        @default(0)
+  updated_by   Int?
+  updated_at   DateTime     @updatedAt
+
+  project         Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  updated_by_user User?   @relation(fields: [updated_by], references: [id])
+
+  @@unique([project_id, stage])
+  @@index([project_id])
+  @@map("stage_progress")
 }

@@ -3,6 +3,9 @@ import hmac
 from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from model.predict import predict_project
 from explainability.shap_explainer import explain_project

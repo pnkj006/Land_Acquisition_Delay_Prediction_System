@@ -18,6 +18,13 @@ const ATTENTION_TEXT = {
 
 export default function RiskGauge({ probability = 0, riskLevel, riskScore, warningMessage }) {
   const pct = Math.max(0, Math.min(100, Number(probability) || 0))
+  
+  console.log('RISK GAUGE INPUT:', {
+    probability,
+    riskScore,
+    riskLevel,
+    warningMessage,
+  })
   const meta = getRiskMeta(riskLevel)
   const attention = ATTENTION_TEXT[riskLevel] || ATTENTION_TEXT[RISK_LEVELS.MEDIUM]
 

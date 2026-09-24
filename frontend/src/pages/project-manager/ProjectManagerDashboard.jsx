@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BrainCircuit,
-  CalendarClock,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -31,9 +30,12 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useDashboard } from '../../hooks/useDashboard.js'
 import { useProjects } from '../../hooks/useProjects.js'
 import { useRisk } from '../../hooks/useRisk.js'
-import { getRecommendations } from '../../api/recommendations.api'
+import {
+  getRecommendations,
+  generateRecommendations,
+} from '../../api/recommendations.api'
 import { getTypeIcon } from '../../utils/typeIcons'
-import { formatDate, formatDateTimeShort, formatRiskScore } from '../../utils/formatters'
+import {  formatDateTimeShort, formatRiskScore } from '../../utils/formatters'
 
 const TABS = ['Overview', 'Risk Analysis', 'Explanation (XAI)', 'Recommendations', 'Progress', 'Documents']
 
@@ -49,6 +51,7 @@ export default function ProjectManagerDashboard() {
   const [activeTab, setActiveTab] = useState('Overview')
   const [recommendations, setRecommendations] = useState([])
   const [recsLoading, setRecsLoading] = useState(true)
+  const [generatingRecommendations, setGeneratingRecommendations] = useState(false)
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedId) || projects[0] || null,
@@ -73,6 +76,24 @@ export default function ProjectManagerDashboard() {
       isMounted = false
     }
   }, [selectedProject])
+  const handleGenerateRecommendations = async () => {
+  if (!selectedProject?.id) return
+
+  try {
+    setGeneratingRecommendations(true)
+
+    await generateRecommendations(selectedProject.id)
+
+    // Reload from database after Gemini generation
+    const refreshed = await getRecommendations(selectedProject.id)
+
+    setRecommendations(refreshed.data || [])
+  } catch (error) {
+    console.error('Failed to generate recommendations:', error)
+  } finally {
+    setGeneratingRecommendations(false)
+  }
+}
 
   return (
     <DashboardLayout activeKey="dashboard">
@@ -125,7 +146,7 @@ export default function ProjectManagerDashboard() {
             filters={filters}
             onFiltersChange={setFilters}
             onRetry={refetch}
-            onView={(project) => setSelectedId(project.id)}
+            
           />
         </div>
 
@@ -252,12 +273,17 @@ export default function ProjectManagerDashboard() {
                     {/* Primary CTA — routes to the EXISTING project details page
                         (no new route or behavior). */}
                     <button
-                      type="button"
-                      onClick={() => navigate(`/project-manager/projects/${selectedProject.id}`)}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dark"
-                    >
-                      Take Action <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
+  type="button"
+  onClick={handleGenerateRecommendations}
+  disabled={generatingRecommendations}
+  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-60"
+>
+  <BrainCircuit className="h-3.5 w-3.5" />
+
+  {generatingRecommendations
+    ? 'Generating AI Recommendations...'
+    : 'Generate AI Recommendations'}
+</button>
                   </div>
                 ) : null}
 

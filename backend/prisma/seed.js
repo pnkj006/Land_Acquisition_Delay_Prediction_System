@@ -189,54 +189,60 @@ async function main() {
   // SEED-P3: nobody
 
   // ─── Seed risk predictions ────────────────────────────────────────────────
-  const rp1 = await prisma.riskPrediction.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      project_id: p1.id,
-      risk_score: 82.0,
-      risk_level: 'HIGH',
-      top_factors: ['legal_disputes', 'rehabilitation_progress'],
-      model_version: 'seed-v1',
-      status: 'DONE',
-      finished_at: new Date()
-    },
-  }).catch(() => prisma.riskPrediction.create({
-    data: {
-      project_id: p1.id,
-      risk_score: 82.0,
-      risk_level: 'HIGH',
-      top_factors: ['legal_disputes', 'rehabilitation_progress'],
-      model_version: 'seed-v1',
-      status: 'DONE',
-      finished_at: new Date()
-    },
-  }));
+  // ─── Seed risk predictions ────────────────────────────────────────────────
 
-  const rp2 = await prisma.riskPrediction.create({
-    data: {
-      project_id: p2.id,
-      risk_score: 35.0,
-      risk_level: 'LOW',
-      top_factors: ['compensation_status'],
-      model_version: 'seed-v1',
-      status: 'DONE',
-      finished_at: new Date()
-    },
-  }).catch(() => null);
+await prisma.riskPrediction.create({
+  data: {
+    project_id: p1.id,
+    prediction: 'Delayed',
+    probability: 0.82,
+    risk_score: 82.0,
+    risk_level: 'HIGH',
+    threshold: 0.5,
+    risk_factors: [
+      'legal_disputes',
+      'rehabilitation_progress',
+    ],
+    model_version: 'seed-v1',
+    status: 'DONE',
+    finished_at: new Date(),
+  },
+});
 
-  const rp3 = await prisma.riskPrediction.create({
-    data: {
-      project_id: p3.id,
-      risk_score: 91.0,
-      risk_level: 'HIGH',
-      top_factors: ['legal_disputes', 'stakeholder_responsiveness'],
-      model_version: 'seed-v1',
-      status: 'DONE',
-      finished_at: new Date()
-    },
-  }).catch(() => null);
+await prisma.riskPrediction.create({
+  data: {
+    project_id: p2.id,
+    prediction: 'On Time',
+    probability: 0.35,
+    risk_score: 35.0,
+    risk_level: 'LOW',
+    threshold: 0.5,
+    risk_factors: [
+      'compensation_status',
+    ],
+    model_version: 'seed-v1',
+    status: 'DONE',
+    finished_at: new Date(),
+  },
+});
 
+await prisma.riskPrediction.create({
+  data: {
+    project_id: p3.id,
+    prediction: 'Delayed',
+    probability: 0.91,
+    risk_score: 91.0,
+    risk_level: 'HIGH',
+    threshold: 0.5,
+    risk_factors: [
+      'legal_disputes',
+      'stakeholder_responsiveness',
+    ],
+    model_version: 'seed-v1',
+    status: 'DONE',
+    finished_at: new Date(),
+  },
+});
   // ─── Seed alerts ──────────────────────────────────────────────────────────
   await prisma.alert.createMany({
     data: [

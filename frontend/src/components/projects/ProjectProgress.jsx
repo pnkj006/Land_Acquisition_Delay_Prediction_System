@@ -1,51 +1,189 @@
-import { CheckCircle2, Circle, CircleDot } from 'lucide-react'
-import ProgressBar from '../common/ProgressBar.jsx'
-import { PROJECT_STAGES } from '../../utils/constants'
+import { Check, Circle } from 'lucide-react'
 
-export default function ProjectProgress({ currentStage }) {
-  const currentIndex = PROJECT_STAGES.indexOf(currentStage)
+const STAGES = [
+  { value: 'NOTIFICATION', label: 'Notification' },
+  { value: 'APPROVAL', label: 'Approval' },
+  { value: 'LAND_ACQUISITION', label: 'Land Acquisition' },
+  { value: 'COMPENSATION', label: 'Compensation' },
+  { value: 'REHABILITATION', label: 'Rehabilitation' },
+  { value: 'POSSESSION', label: 'Possession' },
+]
+
+function normalizeStage(stage) {
+  if (!stage) return ''
+
+  const value = String(stage).trim()
+
+  const enumMatch = STAGES.find(
+    (item) => item.value === value,
+  )
+
+  if (enumMatch) return enumMatch.value
+
+  const labelMatch = STAGES.find(
+    (item) =>
+      item.label.toLowerCase() === value.toLowerCase(),
+  )
+
+  return labelMatch ? labelMatch.value : ''
+}
+
+export default function ProjectProgress({
+  currentStage,
+  stages = [],
+  loading = false,
+}) {
+  const normalizedCurrentStage = normalizeStage(currentStage)
+
+  /*
+   * Convert API stages into:
+   *
+   * {
+   *   NOTIFICATION: 90,
+   *   APPROVAL: 0,
+   *   LAND_ACQUISITION: 0,
+   *   ...
+   * }
+   */
+  const progressMap = {}
+
+  stages.forEach((item) => {
+    const stage = normalizeStage(item?.stage)
+
+    if (!stage) return
+
+    const percentage = Number(item?.progressPct)
+
+    progressMap[stage] = Number.isFinite(percentage)
+      ? percentage
+      : 0
+  })
+
+  console.log('ProjectProgress stages:', stages)
+  console.log('ProjectProgress progressMap:', progressMap)
+  console.log(
+    'ProjectProgress currentStage:',
+    normalizedCurrentStage,
+  )
+
+  const currentIndex = STAGES.findIndex(
+    (stage) => stage.value === normalizedCurrentStage,
+  )
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4">
+        {STAGES.map((stage) => (
+          <div
+            key={stage.value}
+            className="flex items-center gap-3 animate-pulse"
+          >
+            <div className="h-8 w-8 shrink-0 rounded-full bg-gray-100" />
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <div className="h-3 w-24 rounded bg-gray-100" />
+                <div className="h-3 w-20 rounded bg-gray-100" />
+              </div>
+
+              <div className="mt-2 h-1.5 rounded-full bg-gray-100" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
-    <div className="relative flex flex-col gap-3.5">
-      {/* Vertical connector line linking the stage markers */}
-      {currentIndex >= 0 && currentIndex < PROJECT_STAGES.length - 1 ? (
-        <span
-          className="pointer-events-none absolute bottom-5 left-[9px] top-5 w-px bg-gray-200"
-          aria-hidden="true"
-        />
-      ) : null}
-      {PROJECT_STAGES.map((stage, index) => {
-        const isDone = index < currentIndex
-        const isCurrent = index === currentIndex
-        const isPending = index > currentIndex
+    <div className="flex flex-col gap-4">
+      {STAGES.map((stage, index) => {
+        const backendProgress = progressMap[stage.value] ?? 0
 
-        // Done stages = 100%, current = 50%, pending = 0%.
-        const percent = isDone ? 100 : isCurrent ? 50 : 0
-        const barColor = isDone ? 'bg-green-500' : isCurrent ? 'bg-primary' : 'bg-gray-300'
+        const isCompleted =
+          currentIndex !== -1 &&
+          index < currentIndex
+
+        const isCurrent =
+          currentIndex !== -1 &&
+          index === currentIndex
+
+        const isPending =
+          !isCompleted && !isCurrent
+
+        // Previous stages = 100%
+        // Current stage = backend percentage
+        // Future stages = backend percentage / 0
+        const displayProgress = isCompleted
+          ? 100
+          : Math.min(
+              100,
+              Math.max(0, backendProgress),
+            )
 
         return (
-          <div key={stage} className="relative flex items-center gap-3">
-            <div className="relative z-10 flex w-5 shrink-0 justify-center">
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white">
-                {isDone ? (
-                  <CheckCircle2 className="h-[18px] w-[18px] text-green-500" />
-                ) : isCurrent ? (
-                  <CircleDot className="h-[18px] w-[18px] text-primary" />
-                ) : (
-                  <Circle className="h-[18px] w-[18px] text-gray-300" />
-                )}
-              </span>
+          <div
+            key={stage.value}
+            className="flex items-center gap-3"
+          >
+            <div
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                isCompleted
+                  ? 'bg-green-100 text-green-600'
+                  : isCurrent
+                    ? 'bg-accent/10 text-accent'
+                    : 'bg-gray-100 text-gray-400'
+              }`}
+            >
+              {isCompleted ? (
+                <Check size={16} />
+              ) : (
+                <Circle size={12} />
+              )}
             </div>
+
             <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-center justify-between">
-                <p className={`text-xs font-medium ${isCurrent ? 'text-gray-800' : isDone ? 'text-gray-600' : 'text-gray-400'}`}>
-                  {stage}
+              <div className="flex items-center justify-between gap-3">
+                <p
+                  className={`text-sm font-semibold ${
+                    isPending
+                      ? 'text-gray-400'
+                      : 'text-gray-800'
+                  }`}
+                >
+                  {stage.label}
                 </p>
-                <span className={`text-[10px] font-semibold ${isCurrent ? 'text-primary' : 'text-gray-400'}`}>
-                  {isCurrent ? 'In Progress' : isDone ? 'Completed' : 'Pending'} · {percent}%
+
+                <span
+                  className={`text-xs font-medium ${
+                    isCompleted
+                      ? 'text-green-600'
+                      : isCurrent
+                        ? 'text-accent'
+                        : 'text-gray-400'
+                  }`}
+                >
+                  {isCompleted
+                    ? 'Completed · 100%'
+                    : isCurrent
+                      ? `Current · ${displayProgress}%`
+                      : `Pending · ${displayProgress}%`}
                 </span>
               </div>
-              <ProgressBar value={percent} color={barColor} />
+
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isCompleted
+                      ? 'bg-green-500'
+                      : isCurrent
+                        ? 'bg-accent'
+                        : 'bg-transparent'
+                  }`}
+                  style={{
+                    width: `${displayProgress}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
         )

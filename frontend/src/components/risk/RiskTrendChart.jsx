@@ -37,7 +37,23 @@ export default function RiskTrendChart({ projectId }) {
     setError(null)
     getRiskHistory(projectId)
       .then((res) => {
-        if (isMounted) setHistory(res.data.history || [])
+        if (isMounted) {
+  const historyData = res.data || []
+
+  setHistory(
+    historyData
+      .map((item) => ({
+        month: new Date(item.predicted_at).toLocaleDateString('en-US', {
+          month: 'short',
+          year: 'numeric',
+        }),
+        probability: Number(
+          (Number(item.probability) * 100).toFixed(2)
+        ),
+      }))
+      .reverse()
+  )
+}
       })
       .catch((err) => {
         if (isMounted) setError(err)

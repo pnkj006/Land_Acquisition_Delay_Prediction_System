@@ -5,7 +5,9 @@
 const prisma = require('../config/database');
 const { assertProjectInScope, projectScopeWhere } = require('../utils/scope');
 const { sendSuccess, sendError } = require('../utils/response');
-
+const {
+  generateProjectRecommendations,
+} = require('../services/recommendation.service')
 exports.getAllRecommendations = async (req, res, next) => {
   try {
     const { childScopeWhere } = require('../utils/scope');
@@ -117,3 +119,27 @@ exports.updateRecommendationStatus = async (req, res, next) => {
     next(error);
   }
 };
+exports.generateRecommendations = async (req, res, next) => {
+  try {
+    const projectId = req.params.projectId
+
+    const project = await prisma.project.findUnique({
+      where: {
+        project_id: projectId,
+      },
+    })
+
+    if (!project) {
+      return sendError(res, 'Project not found', 'NOT_FOUND', 404)
+    }
+
+    // RBAC scope check
+    await assertProjectInScope(req.user, project.id)
+
+    const result = await generateProjectRecommendations(projectId)
+
+    return sendSuccess(res, result)
+  } catch (error) {
+    next(error)
+  }
+}

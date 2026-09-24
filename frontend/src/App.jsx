@@ -13,7 +13,7 @@ import Recommendations from './pages/project-manager/Recommendations.jsx'
 import Profile from './pages/project-manager/Profile.jsx'
 import Messages from './pages/project-manager/Messages.jsx'
 import Settings from './pages/project-manager/Settings.jsx'
-
+import EditProject from './pages/project-manager/EditProject'
 // Admin Panel Components
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AllProjects from './pages/admin/AllProjects.jsx'
@@ -72,6 +72,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+  path="/project-manager/projects/:projectId/edit"
+  element={
+    <ProtectedRoute requiredPermission={['projects', 'write']}>
+      <EditProject />
+    </ProtectedRoute>
+  }
+/>
         <Route
           path="/project-manager/risk-analysis"
           element={

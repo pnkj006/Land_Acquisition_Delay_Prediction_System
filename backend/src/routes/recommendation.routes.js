@@ -33,5 +33,11 @@ router.patch(
   auditRequest('recommendation_updated'),
   recommendationController.updateRecommendationStatus
 );
+router.post(
+  '/projects/:projectId/recommendations/generate',
+  authorize('recommendations', 'write'),
+  auditRequest('recommendations_generated'),
+  recommendationController.generateRecommendations
+)
 
 module.exports = router;

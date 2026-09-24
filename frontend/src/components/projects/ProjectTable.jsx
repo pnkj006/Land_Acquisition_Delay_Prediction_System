@@ -115,13 +115,23 @@ export default function ProjectTable({
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onView ? onView(project) : navigate(`/project-manager/projects/${project.id}`)}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
-                    >
-                      <Eye className="h-3 w-3" /> View
-                    </button>
+                   <button
+  type="button"
+  onClick={() => {
+    console.log('VIEW BUTTON CLICKED')
+    console.log('PROJECT:', project)
+    console.log(
+      'NAVIGATING TO:',
+      `/project-manager/projects/${project.id}`
+    )
+
+    navigate(`/project-manager/projects/${project.id}`)
+  }}
+  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
+>
+  <Eye className="h-3 w-3" />
+  View
+</button>
                   </td>
                 </tr>
                 )

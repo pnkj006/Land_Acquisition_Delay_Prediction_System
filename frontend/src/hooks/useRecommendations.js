@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAllRecommendations, updateRecommendationStatus } from '../api/recommendations.api'
+import {
+  getAllRecommendations,
+  updateRecommendationStatus,
+  generateRecommendations,
+} from '../api/recommendations.api'
 
 /**
  * Recommendations workspace hook. Mirrors the useAlerts/useFieldUpdates
@@ -21,14 +25,31 @@ export function useRecommendations() {
       queryClient.invalidateQueries({ queryKey: ['recommendations'] })
     },
   })
+  const generateMutation = useMutation({
+  mutationFn: (projectId) => generateRecommendations(projectId),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['recommendations'] })
+  },
+})
 
-  return { 
-    recommendations: query.data?.data || [], 
-    loading: query.isLoading, 
-    error: query.error, 
-    refetch: query.refetch, 
-    updateStatus: (id, status) => mutation.mutateAsync({ id, status }), 
-    updatingId: mutation.variables?.id || null, 
-    lastUpdated: query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null
-  }
+return {
+  recommendations: query.data?.data || [],
+  loading: query.isLoading,
+  error: query.error,
+  refetch: query.refetch,
+
+  updateStatus: (id, status) =>
+    mutation.mutateAsync({ id, status }),
+
+  updatingId: mutation.variables?.id || null,
+
+  generateRecommendations: (projectId) =>
+    generateMutation.mutateAsync(projectId),
+
+  generating: generateMutation.isPending,
+
+  lastUpdated: query.dataUpdatedAt
+    ? new Date(query.dataUpdatedAt)
+    : null,
+}
 }

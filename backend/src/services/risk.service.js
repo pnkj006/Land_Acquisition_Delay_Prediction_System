@@ -30,29 +30,32 @@ async function getScopedProject(projectIdParam, user) {
  * getCurrentRisk(projectIdParam, user)
  */
 exports.getCurrentRisk = async (projectIdParam, user) => {
-  const project = await getScopedProject(projectIdParam, user);
+  const project = await getScopedProject(projectIdParam, user)
 
   const latest = await prisma.riskPrediction.findFirst({
     where: { project_id: project.id },
     orderBy: { predicted_at: 'desc' },
-  });
+  })
 
   if (!latest) {
-    const err = new Error('No risk prediction available for this project yet');
-    err.statusCode = 404;
-    err.code = 'RISK_PREDICTION_NOT_FOUND';
-    throw err;
+    const err = new Error('No risk prediction available for this project yet')
+    err.statusCode = 404
+    err.code = 'RISK_PREDICTION_NOT_FOUND'
+    throw err
   }
 
   return {
     projectId: project.project_id,
+    prediction: latest.prediction,
+    probability: latest.probability,
     riskScore: latest.risk_score,
     riskLevel: latest.risk_level,
-    delayProbability: latest.delay_probability,
+    threshold: latest.threshold,
+    riskFactors: latest.risk_factors || [],
     modelVersion: latest.model_version,
     predictedAt: latest.predicted_at,
-  };
-};
+  }
+}
 
 /**
  * getRiskHistory(projectIdParam, user, page, limit, skip)
@@ -139,5 +142,5 @@ exports.rerunPrediction = async (projectIdParam, user) => {
   // Trigger ML pipeline — scope already verified
   const result = await triggerRiskPrediction(project.id);
 
-  return { projectId: project.project_id, status: 'queued', result };
+  return { projectId: project.project_id, status: 'completed', result };
 };
