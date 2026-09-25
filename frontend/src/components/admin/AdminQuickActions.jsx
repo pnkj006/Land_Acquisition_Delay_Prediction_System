@@ -5,6 +5,7 @@ import {
   FileBarChart,
   FolderKanban,
   Bell,
+  Plus,
   Upload,
 } from 'lucide-react'
 
@@ -12,10 +13,10 @@ const ACTIONS = [
   {
     label: 'Create Project',
     action: 'create',
-    icon: FolderKanban,
+    icon: Plus,
   },
   {
-    label: 'Import Projects CSV',
+    label: 'Import Projects (CSV)',
     action: 'import',
     icon: Upload,
   },
@@ -46,18 +47,27 @@ const ACTIONS = [
   },
 ]
 
-/**
- * Quick actions for the Admin dashboard.
- *
- * - Create Project and Import Projects CSV are handled by callbacks
- *   from the parent AdminDashboard.
- * - Other actions navigate to existing admin workspace routes.
- */
 export default function AdminQuickActions({
   onCreateProject,
   onImportProjects,
 }) {
   const navigate = useNavigate()
+
+  const handleAction = (action, path) => {
+    if (action === 'create') {
+      onCreateProject?.()
+      return
+    }
+
+    if (action === 'import') {
+      onImportProjects?.()
+      return
+    }
+
+    if (path) {
+      navigate(path)
+    }
+  }
 
   return (
     <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -67,7 +77,7 @@ export default function AdminQuickActions({
         </h3>
 
         <p className="text-[11px] text-gray-400">
-          Create projects, import data, or jump to system workspaces
+          Create, import and manage system projects
         </p>
       </div>
 
@@ -76,19 +86,7 @@ export default function AdminQuickActions({
           <button
             key={label}
             type="button"
-            onClick={() => {
-              if (action === 'create') {
-                onCreateProject?.()
-                return
-              }
-
-              if (action === 'import') {
-                onImportProjects?.()
-                return
-              }
-
-              navigate(path)
-            }}
+            onClick={() => handleAction(action, path)}
             className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5 text-left text-xs font-semibold text-gray-700 transition-colors hover:border-primary/30 hover:bg-primary-50 hover:text-primary"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary shadow-sm">

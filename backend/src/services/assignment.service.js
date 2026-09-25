@@ -1,18 +1,31 @@
 /**
  * @fileoverview Assignment Service
  * Manages ProjectAssignment rows.
- * §7.4 of the RBAC V7 plan.
+ *
+ * Project assignment rules:
+ * - Only active PROJECT_MANAGER users can be assigned.
+ * - One project can have only one Project Manager.
+ * - Reassignment replaces the previous Project Manager.
  */
 const prisma = require('../config/database');
 const { logInTx } = require('./audit.service');
 
 /**
- * getProjectAssignments(projectId)
- * Returns the list of users assigned to a project.
+ * Get the Project Manager assigned to a project.
+ *
+ * Returns:
+ *   user object
+ * or
+ *   null
  */
 async function getProjectAssignments(projectId) {
-  const assignments = await prisma.projectAssignment.findMany({
-    where: { project_id: projectId },
+  const assignment = await prisma.projectAssignment.findFirst({
+    where: {
+      project_id: projectId,
+      user: {
+        role: 'PROJECT_MANAGER',
+      },
+    },
     include: {
       user: {
         select: {
@@ -24,95 +37,191 @@ async function getProjectAssignments(projectId) {
         },
       },
     },
-    orderBy: { user_id: 'asc' },
   });
 
-  return assignments.map(a => a.user);
+  return assignment ? assignment.user : null;
 }
 
 /**
- * setProjectAssignments(actor, projectId, userIds)
- * Full replace of assigned users.
- * actor: req.user
+ * Assign exactly one Project Manager to a project.
+ *
+ * userIds:
+ *   []       -> remove current PM
+ *   [userId] -> assign that PM
  */
 async function setProjectAssignments(actor, projectId, userIds) {
-  // Validate project exists
+  // --------------------------------------------------
+  // 1. Validate project
+  // --------------------------------------------------
   const project = await prisma.project.findUnique({
-    where: { id: projectId },
+    where: {
+      id: projectId,
+    },
   });
 
   if (!project) {
     const err = new Error('Project not found');
     err.statusCode = 404;
+    err.code = 'PROJECT_NOT_FOUND';
     throw err;
   }
 
-  // Deduplicate userIds
+  // --------------------------------------------------
+  // 2. Only one PM is allowed
+  // --------------------------------------------------
+  if (userIds.length > 1) {
+    const err = new Error(
+      'Only one Project Manager can be assigned to a project'
+    );
+
+    err.statusCode = 400;
+    err.code = 'MULTIPLE_PROJECT_MANAGERS';
+
+    throw err;
+  }
+
+  // --------------------------------------------------
+  // 3. Normalize user ID
+  // --------------------------------------------------
   const uniqueUserIds = [...new Set(userIds)];
 
-  // Validate users exist and are valid roles (PM or STAFF)
-  if (uniqueUserIds.length > 0) {
-    const users = await prisma.user.findMany({
-      where: { id: { in: uniqueUserIds } },
-      select: { id: true, role: true, is_active: true },
-    });
+  // --------------------------------------------------
+  // 4. Validate selected PM
+  // --------------------------------------------------
+  if (uniqueUserIds.length === 1) {
+    const userId = Number(uniqueUserIds[0]);
 
-    if (users.length !== uniqueUserIds.length) {
-      const err = new Error('One or more users not found');
+    if (!Number.isInteger(userId)) {
+      const err = new Error('Invalid Project Manager ID');
       err.statusCode = 400;
+      err.code = 'INVALID_USER_ID';
       throw err;
     }
 
-    for (const user of users) {
-      if (!user.is_active) {
-        const err = new Error(`User ${user.id} is inactive and cannot be assigned`);
-        err.statusCode = 400;
-        throw err;
-      }
-      // Only PM and STAFF can be assigned. ADMIN and SENIOR_OFFICIAL have global scope.
-      if (user.role === 'ADMIN' || user.role === 'SENIOR_OFFICIAL') {
-        const err = new Error(`User ${user.id} has role ${user.role} and cannot be assigned to specific projects`);
-        err.statusCode = 400;
-        throw err;
-      }
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        is_active: true,
+      },
+    });
+
+    if (!user) {
+      const err = new Error('Project Manager not found');
+      err.statusCode = 404;
+      err.code = 'USER_NOT_FOUND';
+      throw err;
+    }
+
+    if (!user.is_active) {
+      const err = new Error(
+        'This Project Manager is inactive and cannot be assigned'
+      );
+
+      err.statusCode = 400;
+      err.code = 'USER_INACTIVE';
+
+      throw err;
+    }
+
+    if (user.role !== 'PROJECT_MANAGER') {
+      const err = new Error(
+        'Selected user is not a Project Manager'
+      );
+
+      err.statusCode = 400;
+      err.code = 'INVALID_ASSIGNMENT_ROLE';
+
+      throw err;
     }
   }
 
-  // Get current assignments for diff
-  const currentAssignments = await prisma.projectAssignment.findMany({
-    where: { project_id: projectId },
-    select: { user_id: true },
-  });
-  
-  const before = currentAssignments.map(a => a.user_id).sort((a, b) => a - b);
-  const after = [...uniqueUserIds].sort((a, b) => a - b);
-
-  if (JSON.stringify(before) === JSON.stringify(after)) {
-    return { changed: false, before, after };
-  }
-
-  // Apply in transaction
-  await prisma.$transaction(async (tx) => {
-    // Delete all
-    await tx.projectAssignment.deleteMany({
-      where: { project_id: projectId },
+  // --------------------------------------------------
+  // 5. Get current assignment
+  // --------------------------------------------------
+  const currentAssignment =
+    await prisma.projectAssignment.findFirst({
+      where: {
+        project_id: projectId,
+        user: {
+          role: 'PROJECT_MANAGER',
+        },
+      },
+      select: {
+        user_id: true,
+      },
     });
 
-    // Create new
-    if (after.length > 0) {
-      await tx.projectAssignment.createMany({
-        data: after.map(userId => ({
+  const before = currentAssignment
+    ? [currentAssignment.user_id]
+    : [];
+
+  const after = uniqueUserIds;
+
+  // --------------------------------------------------
+  // 6. No change
+  // --------------------------------------------------
+  if (
+    before.length === after.length &&
+    before.every((id) => after.includes(id))
+  ) {
+    return {
+      changed: false,
+      projectId,
+      before,
+      after,
+    };
+  }
+
+  // --------------------------------------------------
+  // 7. Replace assignment inside transaction
+  // --------------------------------------------------
+  await prisma.$transaction(async (tx) => {
+    // Remove existing PM assignment
+    await tx.projectAssignment.deleteMany({
+      where: {
+        project_id: projectId,
+      },
+    });
+
+    // Add new PM
+    if (after.length === 1) {
+      await tx.projectAssignment.create({
+        data: {
           project_id: projectId,
-          user_id: userId,
-        })),
+          user_id: after[0],
+        },
       });
     }
 
-    // Log
-    await logInTx(tx, actor, 'assignments_updated', 'projects', projectId, { before, after });
+    // Audit
+    await logInTx(
+      tx,
+      actor,
+      'project_manager_assigned',
+      'projects',
+      projectId,
+      {
+        before,
+        after,
+      }
+    );
   });
 
-  return { changed: true, before, after };
+  return {
+    changed: true,
+    projectId,
+    before,
+    after,
+  };
 }
 
-module.exports = { getProjectAssignments, setProjectAssignments };
+module.exports = {
+  getProjectAssignments,
+  setProjectAssignments,
+};

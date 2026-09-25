@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight,
   CalendarClock,
@@ -29,13 +30,19 @@ import EmptyState from '../../components/common/EmptyState.jsx'
 
 import { useFieldUpdates } from '../../hooks/useFieldUpdates.js'
 import { useProjects } from '../../hooks/useProjects.js'
+
 import {
   FIELD_UPDATE_TYPES,
   PROJECT_STAGES,
 } from '../../utils/constants'
+
 import { getTypeIcon } from '../../utils/typeIcons'
 import { timeAgo } from '../../utils/dateUtils'
-import { formatDate, formatDateTimeShort } from '../../utils/formatters'
+import {
+  formatDate,
+  formatDateTimeShort,
+} from '../../utils/formatters'
+
 import { updateStageProgress } from '../../api/projects.api'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -44,15 +51,21 @@ function formatBytes(bytes) {
   if (bytes === null || bytes === undefined) return ''
 
   const units = ['B', 'KB', 'MB', 'GB']
+
   let value = bytes
   let unit = 0
 
-  while (value >= 1024 && unit < units.length - 1) {
+  while (
+    value >= 1024 &&
+    unit < units.length - 1
+  ) {
     value /= 1024
     unit += 1
   }
 
-  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
+  return `${value.toFixed(
+    value >= 10 || unit === 0 ? 0 : 1,
+  )} ${units[unit]}`
 }
 
 const DEFAULT_FILTERS = {
@@ -62,19 +75,9 @@ const DEFAULT_FILTERS = {
   search: '',
 }
 
-/**
- * Dedicated Field Updates workspace for District/Project Managers.
- *
- * The page:
- * - Displays existing field updates
- * - Allows filtering/searching updates
- * - Allows the manager to submit current project stage progress
- * - Updates the project's current stage
- * - Stores the current stage completion percentage
- * - Refreshes project data after the stage changes
- */
 export default function FieldUpdates() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const {
     updates,
@@ -83,11 +86,19 @@ export default function FieldUpdates() {
     refetch,
   } = useFieldUpdates()
 
-  const { projects, refetch: refetchProjects } = useProjects({ pageSize: 100 })
+  const { projects } = useProjects({
+    pageSize: 100,
+  })
 
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  const [submitting, setSubmitting] = useState(false)
-  const [lastSubmitted, setLastSubmitted] = useState(null)
+  const [filters, setFilters] = useState(
+    DEFAULT_FILTERS,
+  )
+
+  const [submitting, setSubmitting] =
+    useState(false)
+
+  const [lastSubmitted, setLastSubmitted] =
+    useState(null)
 
   /*
    * Filter existing field updates.
@@ -116,10 +127,15 @@ export default function FieldUpdates() {
       }
 
       if (filters.search) {
-        const q = filters.search.toLowerCase()
+        const q =
+          filters.search.toLowerCase()
 
         const haystack =
-          `${u.note} ${u.projectId} ${u.projectName}`.toLowerCase()
+          `${u.note || ''} ${
+            u.projectId || ''
+          } ${
+            u.projectName || ''
+          }`.toLowerCase()
 
         if (!haystack.includes(q)) {
           return false
@@ -134,22 +150,31 @@ export default function FieldUpdates() {
    * Summary statistics.
    */
   const stats = useMemo(() => {
-    const weekAgo = Date.now() - 7 * DAY_MS
+    const weekAgo =
+      Date.now() - 7 * DAY_MS
 
     return {
       total: filteredUpdates.length,
 
-      thisWeek: filteredUpdates.filter(
-        (u) =>
-          new Date(u.submittedAt).getTime() >= weekAgo,
-      ).length,
+      thisWeek:
+        filteredUpdates.filter(
+          (u) =>
+            new Date(
+              u.submittedAt,
+            ).getTime() >= weekAgo,
+        ).length,
 
       projectsCovered: new Set(
-        filteredUpdates.map((u) => u.projectId),
+        filteredUpdates.map(
+          (u) => u.projectId,
+        ),
       ).size,
     }
   }, [filteredUpdates])
 
+  /*
+   * Reset filters.
+   */
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS)
   }
@@ -164,50 +189,75 @@ export default function FieldUpdates() {
   /*
    * Submit current stage progress.
    *
-   * The new form sends:
+   * Backend receives:
+   *
    * {
-   *   projectId,
    *   stage,
    *   progressPct
    * }
    *
-   * Backend automatically:
-   * - Marks previous stages as 100%
-   * - Sets current stage to progressPct
-   * - Sets future stages to 0%
+   * Backend handles:
+   * - Previous stages -> 100%
+   * - Current stage -> submitted percentage
+   * - Future stages -> 0%
    */
   const handleSubmit = async (payload) => {
     setSubmitting(true)
 
     try {
-      await updateStageProgress(payload.projectId, {
-        stage: payload.stage,
-        progressPct: payload.progressPct,
+      await updateStageProgress(
+        payload.projectId,
+        {
+          stage: payload.stage,
+          progressPct:
+            payload.progressPct,
+        },
+      )
+
+      /*
+       * Refresh project list.
+       */
+      await queryClient.invalidateQueries({
+        queryKey: ['projects'],
       })
 
       /*
-       * Refresh project list so current_stage
-       * immediately changes throughout the application.
+       * Refresh individual project details.
        */
-      if (refetchProjects) {
-        await refetchProjects()
-      }
+      await queryClient.invalidateQueries({
+        queryKey: [
+          'project',
+          payload.projectId,
+        ],
+      })
 
-      const selectedProject = projects.find(
-        (p) => p.id === payload.projectId,
-      )
+      /*
+       * Find submitted project.
+       */
+      const selectedProject =
+        projects.find(
+          (p) =>
+            p.id === payload.projectId,
+        )
 
+      /*
+       * Show success information.
+       */
       setLastSubmitted({
-        projectId: payload.projectId,
+        projectId:
+          payload.projectId,
 
         projectName:
-          selectedProject?.name || payload.projectId,
+          selectedProject?.name ||
+          payload.projectId,
 
         stage: payload.stage,
 
-        progressPct: payload.progressPct,
+        progressPct:
+          payload.progressPct,
 
-        submittedAt: new Date().toISOString(),
+        submittedAt:
+          new Date().toISOString(),
       })
     } finally {
       setSubmitting(false)
@@ -216,6 +266,10 @@ export default function FieldUpdates() {
 
   return (
     <DashboardLayout activeKey="field-updates">
+      {/* =====================================================
+          PAGE HEADER
+      ====================================================== */}
+
       <PageHeader
         title="Field Updates"
         subtitle="Record the current project stage and its completion progress."
@@ -234,6 +288,10 @@ export default function FieldUpdates() {
         }
       />
 
+      {/* =====================================================
+          LOADING / ERROR / CONTENT
+      ====================================================== */}
+
       {loading ? (
         <Loader
           label="Loading field updates…"
@@ -250,7 +308,10 @@ export default function FieldUpdates() {
       ) : (
         <div className="flex flex-col gap-5">
 
-          {/* Summary KPIs */}
+          {/* =================================================
+              SUMMARY KPIs
+          ================================================== */}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SummaryCard
               icon={ClipboardList}
@@ -271,21 +332,29 @@ export default function FieldUpdates() {
             />
           </div>
 
-          {/* Filters */}
+          {/* =================================================
+              FILTERS
+          ================================================== */}
+
           <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-end gap-3">
 
+              {/* Project Filter */}
               <div className="flex min-w-[170px] flex-col gap-1">
                 <span className="text-xs font-medium text-gray-600">
                   Project
                 </span>
 
                 <FilterDropdown
-                  options={projects.map((p) => ({
-                    value: p.id,
-                    label: `${p.id} — ${p.name}`,
-                  }))}
-                  value={filters.projectId}
+                  options={projects.map(
+                    (p) => ({
+                      value: p.id,
+                      label: `${p.id} — ${p.name}`,
+                    }),
+                  )}
+                  value={
+                    filters.projectId
+                  }
                   onChange={(next) =>
                     setFilters((f) => ({
                       ...f,
@@ -297,16 +366,19 @@ export default function FieldUpdates() {
                 />
               </div>
 
+              {/* Stage Filter */}
               <div className="flex min-w-[150px] flex-col gap-1">
                 <span className="text-xs font-medium text-gray-600">
                   Stage
                 </span>
 
                 <FilterDropdown
-                  options={PROJECT_STAGES.map((s) => ({
-                    value: s,
-                    label: s,
-                  }))}
+                  options={PROJECT_STAGES.map(
+                    (s) => ({
+                      value: s,
+                      label: s,
+                    }),
+                  )}
                   value={filters.stage}
                   onChange={(next) =>
                     setFilters((f) => ({
@@ -319,17 +391,22 @@ export default function FieldUpdates() {
                 />
               </div>
 
+              {/* Update Type Filter */}
               <div className="flex min-w-[160px] flex-col gap-1">
                 <span className="text-xs font-medium text-gray-600">
                   Update Type
                 </span>
 
                 <FilterDropdown
-                  options={FIELD_UPDATE_TYPES.map((t) => ({
-                    value: t,
-                    label: t,
-                  }))}
-                  value={filters.updateType}
+                  options={FIELD_UPDATE_TYPES.map(
+                    (t) => ({
+                      value: t,
+                      label: t,
+                    }),
+                  )}
+                  value={
+                    filters.updateType
+                  }
                   onChange={(next) =>
                     setFilters((f) => ({
                       ...f,
@@ -341,6 +418,7 @@ export default function FieldUpdates() {
                 />
               </div>
 
+              {/* Search */}
               <SearchBar
                 placeholder="Search notes, projects…"
                 value={filters.search}
@@ -353,10 +431,12 @@ export default function FieldUpdates() {
                 className="w-full sm:w-56"
               />
 
+              {/* Reset */}
               <div className="ml-auto flex items-center gap-3 pb-0.5">
                 <span className="text-xs text-gray-500">
                   {filteredUpdates.length}{' '}
-                  {filteredUpdates.length === 1
+                  {filteredUpdates.length ===
+                  1
                     ? 'update'
                     : 'updates'}
                 </span>
@@ -365,8 +445,12 @@ export default function FieldUpdates() {
                   variant="outline"
                   size="sm"
                   icon={RotateCcw}
-                  onClick={handleResetFilters}
-                  disabled={!hasActiveFilters}
+                  onClick={
+                    handleResetFilters
+                  }
+                  disabled={
+                    !hasActiveFilters
+                  }
                 >
                   Reset Filters
                 </Button>
@@ -374,19 +458,27 @@ export default function FieldUpdates() {
             </div>
           </section>
 
-          {/* Success message */}
+          {/* =================================================
+              SUCCESS MESSAGE
+          ================================================== */}
+
           {lastSubmitted ? (
             <section className="rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm">
+
               <div className="flex flex-wrap items-center justify-between gap-2">
 
                 <p className="flex items-center gap-2 text-sm font-semibold text-green-700">
                   <CheckCircle2 className="h-4 w-4" />
-                  Stage progress updated successfully.
+
+                  Stage progress updated
+                  successfully.
                 </p>
 
                 <button
                   type="button"
-                  onClick={() => setLastSubmitted(null)}
+                  onClick={() =>
+                    setLastSubmitted(null)
+                  }
                   aria-label="Dismiss"
                   className="rounded-md p-1 text-green-600 transition-colors hover:bg-green-100"
                 >
@@ -394,6 +486,7 @@ export default function FieldUpdates() {
                 </button>
               </div>
 
+              {/* Submitted information */}
               <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4">
 
                 {/* Project */}
@@ -403,8 +496,11 @@ export default function FieldUpdates() {
                   </dt>
 
                   <dd className="truncate font-semibold text-gray-700">
-                    {lastSubmitted.projectId} —{' '}
-                    {lastSubmitted.projectName}
+                    {lastSubmitted.projectId}
+                    {' — '}
+                    {
+                      lastSubmitted.projectName
+                    }
                   </dd>
                 </div>
 
@@ -426,7 +522,10 @@ export default function FieldUpdates() {
                   </dt>
 
                   <dd className="truncate font-semibold text-gray-700">
-                    {lastSubmitted.progressPct}%
+                    {
+                      lastSubmitted.progressPct
+                    }
+                    %
                   </dd>
                 </div>
 
@@ -445,8 +544,10 @@ export default function FieldUpdates() {
 
               </dl>
 
+              {/* Success actions */}
               <div className="mt-3 flex flex-wrap gap-2">
 
+                {/* View Project */}
                 <Button
                   size="sm"
                   variant="outline"
@@ -460,6 +561,20 @@ export default function FieldUpdates() {
                   View Project
                 </Button>
 
+                {/* Edit Project */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigate(
+                      `/project-manager/projects/${lastSubmitted.projectId}/edit`,
+                    )
+                  }
+                >
+                  Edit Project
+                </Button>
+
+                {/* View Update History */}
                 <Button
                   size="sm"
                   variant="outline"
@@ -471,7 +586,8 @@ export default function FieldUpdates() {
 
                     if (target) {
                       target.scrollIntoView({
-                        behavior: 'smooth',
+                        behavior:
+                          'smooth',
                       })
                     }
                   }}
@@ -483,14 +599,20 @@ export default function FieldUpdates() {
             </section>
           ) : null}
 
-          {/* Stage Progress Form */}
+          {/* =================================================
+              FIELD UPDATE FORM
+          ================================================== */}
+
           <FieldUpdateForm
             projects={projects}
             submitting={submitting}
             onSubmit={handleSubmit}
           />
 
-          {/* Existing Updates Feed */}
+          {/* =================================================
+              UPDATES FEED
+          ================================================== */}
+
           <section
             id="update-history"
             className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
@@ -505,7 +627,8 @@ export default function FieldUpdates() {
               </p>
             </div>
 
-            {filteredUpdates.length === 0 ? (
+            {filteredUpdates.length ===
+            0 ? (
               <EmptyState
                 icon={ClipboardList}
                 title={
@@ -522,141 +645,240 @@ export default function FieldUpdates() {
             ) : (
               <div className="flex flex-col divide-y divide-gray-50">
 
-                {filteredUpdates.map((update) => {
-                  const project =
-                    projects.find(
-                      (p) => p.id === update.projectId,
-                    ) || null
+                {filteredUpdates.map(
+                  (update) => {
+                    const project =
+                      projects.find(
+                        (p) =>
+                          p.id ===
+                          update.projectId,
+                      ) || null
 
-                  const TypeIcon = getTypeIcon(
-                    project ? project.type : '',
-                  )
+                    const TypeIcon =
+                      getTypeIcon(
+                        project
+                          ? project.type
+                          : '',
+                      )
 
-                  return (
-                    <article
-                      key={update.id}
-                      className="rounded-lg px-2 py-3 transition-colors hover:bg-gray-50/60"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                    return (
+                      <article
+                        key={update.id}
+                        className="rounded-lg px-2 py-3 transition-colors hover:bg-gray-50/60"
+                      >
+                        {/* =================================
+                            UPDATE HEADER
+                        ================================== */}
 
-                        <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
 
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
-                            <TypeIcon className="h-4 w-4" />
-                          </span>
+                          <div className="flex min-w-0 items-center gap-2.5">
 
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-gray-800">
-                              {update.projectName ||
-                                update.projectId}
-                            </p>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
+                              <TypeIcon className="h-4 w-4" />
+                            </span>
 
-                            <p className="text-[11px] text-gray-400">
-                              {update.projectId} ·{' '}
-                              {timeAgo(update.submittedAt)}
-                            </p>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-800">
+                                {update.projectName ||
+                                  update.projectId}
+                              </p>
+
+                              <p className="text-[11px] text-gray-400">
+                                {
+                                  update.projectId
+                                }
+                                {' · '}
+                                {timeAgo(
+                                  update.submittedAt,
+                                )}
+                              </p>
+                            </div>
+
                           </div>
 
-                        </div>
+                          {/* Update Type */}
+                          {update.updateType ? (
+                            <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                              {
+                                update.updateType
+                              }
+                            </span>
+                          ) : null}
 
-                        {update.updateType ? (
-                          <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                            {update.updateType}
-                          </span>
-                        ) : null}
+                          {/* Stage transition */}
+                          <div className="flex items-center gap-1.5">
 
-                        <div className="flex items-center gap-1.5">
+                            {update.previousStage ? (
+                              <StatusBadge
+                                status={
+                                  update.previousStage
+                                }
+                              />
+                            ) : null}
 
-                          {update.previousStage ? (
+                            {update.previousStage ? (
+                              <ArrowRight className="h-3 w-3 text-gray-400" />
+                            ) : null}
+
                             <StatusBadge
-                              status={update.previousStage}
+                              status={
+                                update.stage
+                              }
                             />
-                          ) : null}
 
-                          {update.previousStage ? (
-                            <ArrowRight className="h-3 w-3 text-gray-400" />
-                          ) : null}
-
-                          <StatusBadge
-                            status={update.stage}
-                          />
-
+                          </div>
                         </div>
-                      </div>
 
-                      {update.note ? (
-                        <p className="mt-2 text-xs leading-snug text-gray-600">
-                          {update.note}
-                        </p>
-                      ) : null}
+                        {/* =================================
+                            NOTE
+                        ================================== */}
 
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-gray-400">
-
-                        {update.submittedBy ? (
-                          <span className="inline-flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {update.submittedBy.name} ·{' '}
-                            {update.submittedBy.role}
-                          </span>
+                        {update.note ? (
+                          <p className="mt-2 text-xs leading-snug text-gray-600">
+                            {update.note}
+                          </p>
                         ) : null}
 
-                        {update.attachment ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Paperclip className="h-3 w-3" />
+                        {/* =================================
+                            UPDATE DETAILS
+                        ================================== */}
 
-                            <span className="max-w-[180px] truncate">
-                              {update.attachment.name}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-gray-400">
+
+                          {/* Submitted By */}
+                          {update.submittedBy ? (
+                            <span className="inline-flex items-center gap-1">
+                              <User className="h-3 w-3" />
+
+                              {
+                                update
+                                  .submittedBy
+                                  .name
+                              }
+
+                              {' · '}
+
+                              {
+                                update
+                                  .submittedBy
+                                  .role
+                              }
                             </span>
+                          ) : null}
 
-                            <span className="text-gray-300">
-                              (
-                              {formatBytes(
-                                update.attachment.size,
-                              )}
-                              )
+                          {/* Attachment */}
+                          {update.attachment ? (
+                            <span className="inline-flex items-center gap-1">
+
+                              <Paperclip className="h-3 w-3" />
+
+                              <span className="max-w-[180px] truncate">
+                                {
+                                  update
+                                    .attachment
+                                    .name
+                                }
+                              </span>
+
+                              <span className="text-gray-300">
+                                (
+                                {formatBytes(
+                                  update
+                                    .attachment
+                                    .size,
+                                )}
+                                )
+                              </span>
+
                             </span>
-                          </span>
-                        ) : null}
+                          ) : null}
 
-                        {update.location ? (
+                          {/* Location */}
+                          {update.location ? (
+                            <span className="inline-flex items-center gap-1">
+
+                              <MapPin className="h-3 w-3" />
+
+                              {update.location
+                                .source ===
+                              'device'
+                                ? 'Current location'
+                                : 'Project site'}
+
+                              {' · '}
+
+                              {
+                                update
+                                  .location
+                                  .lat
+                              }
+                              ,
+                              {
+                                update
+                                  .location
+                                  .lng
+                              }
+
+                            </span>
+                          ) : null}
+
+                          {/* Date */}
                           <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
 
-                            {update.location.source ===
-                            'device'
-                              ? 'Current location'
-                              : 'Project site'}{' '}
-                            · {update.location.lat},{' '}
-                            {update.location.lng}
+                            <CalendarDays className="h-3 w-3" />
+
+                            {formatDate(
+                              update.submittedAt,
+                            )}
+
                           </span>
-                        ) : null}
 
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
-                          {formatDate(update.submittedAt)}
-                        </span>
+                          {/* Submitted Badge */}
+                          <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                            Submitted
+                          </span>
 
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                          Submitted
-                        </span>
+                          {/* =================================
+                              PROJECT ACTIONS
+                          ================================== */}
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/project-manager/projects/${update.projectId}`,
-                            )
-                          }
-                          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
-                        >
-                          <Eye className="h-3 w-3" />
-                          View project
-                        </button>
+                          <div className="ml-auto flex items-center gap-2">
 
-                      </div>
-                    </article>
-                  )
-                })}
+                            {/* View Project */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/project-manager/projects/${update.projectId}`,
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
+                            >
+                              <Eye className="h-3 w-3" />
+
+                              View project
+                            </button>
+
+                            {/* Edit Project */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/project-manager/projects/${update.projectId}/edit`,
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent-50"
+                            >
+                              Edit project
+                            </button>
+
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  },
+                )}
 
               </div>
             )}

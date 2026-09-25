@@ -147,9 +147,21 @@ export async function updateRecommendationStatus(recId, status) {
   return { data: mapRecommendation(res.data) }
 }
 export async function generateRecommendations(projectId) {
-  const res = await fetchClient(`/projects/${projectId}/recommendations/generate`, {
-    method: 'POST',
-  })
+  if (!projectId) {
+    throw new Error('Missing project_id')
+  }
+
+  console.log(
+    'GENERATING AI RECOMMENDATIONS FOR PROJECT:',
+    projectId
+  )
+
+  const res = await fetchClient(
+    `/projects/${encodeURIComponent(projectId)}/recommendations/generate`,
+    {
+      method: 'POST',
+    }
+  )
 
   return res.data
 }

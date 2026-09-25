@@ -1,553 +1,152 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Check,
-  Eye,
+  AlertCircle,
+  ArrowRight,
+  BrainCircuit,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Filter,
+  Loader2,
   RefreshCw,
   Sparkles,
+  Target,
+  XCircle,
 } from 'lucide-react'
 
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx'
 import PageHeader from '../../components/layout/PageHeader.jsx'
 import SummaryCard from '../../components/dashboard/SummaryCard.jsx'
-import Button from '../../components/common/Button.jsx'
-import Select from '../../components/common/Select.jsx'
+import FilterDropdown from '../../components/common/FilterDropdown.jsx'
 import SearchBar from '../../components/common/SearchBar.jsx'
+import Button from '../../components/common/Button.jsx'
 import Loader from '../../components/common/Loader.jsx'
-import ErrorState from '../../components/common/ErrorState.jsx'
 import EmptyState from '../../components/common/EmptyState.jsx'
+import RiskBadge from '../../components/common/RiskBadge.jsx'
 
-import { useRecommendations } from '../../hooks/useRecommendations'
-import { RECOMMENDATION_STATUSES } from '../../api/recommendations.api'
-import { PRIORITY_LEVELS } from '../../utils/constants'
-import { formatDateTimeShort } from '../../utils/formatters'
+import { useRecommendations } from '../../hooks/useRecommendations.js'
+import { useProjects } from '../../hooks/useProjects.js'
 
-/* -------------------------------------------------------------------------- */
-/* STATUS / PRIORITY STYLES                                                   */
-/* -------------------------------------------------------------------------- */
-function normalizeEnum(value) {
-  return String(value ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, '_')
-}
-const PRIORITY_BADGES = {
-  [PRIORITY_LEVELS.HIGH]:
-    'bg-red-100 text-red-700 border border-red-200',
+/* =========================================================
+   PRIORITIES
+========================================================= */
 
-  [PRIORITY_LEVELS.MEDIUM]:
-    'bg-amber-100 text-amber-700 border border-amber-200',
+const PRIORITIES = [
+  {
+    value: 'HIGH',
+    label: 'High',
+  },
+  {
+    value: 'MEDIUM',
+    label: 'Medium',
+  },
+  {
+    value: 'LOW',
+    label: 'Low',
+  },
+]
 
-  [PRIORITY_LEVELS.LOW]:
-    'bg-green-100 text-green-700 border border-green-200',
-}
+/* =========================================================
+   RECOMMENDATION STATUSES
+========================================================= */
 
-const STATUS_CHIPS = {
-  [RECOMMENDATION_STATUSES.PENDING]:
-    'bg-gray-100 text-gray-600',
+const STATUSES = [
+  {
+    value: 'PENDING',
+    label: 'Pending',
+  },
+  {
+    value: 'ACCEPTED',
+    label: 'Accepted',
+  },
+  {
+    value: 'DISMISSED',
+    label: 'Dismissed',
+  },
+  {
+    value: 'COMPLETED',
+    label: 'Completed',
+  },
+]
 
-  [RECOMMENDATION_STATUSES.ACCEPTED]:
-    'bg-blue-50 text-blue-700',
+/* =========================================================
+   FILTERS
+========================================================= */
 
-  [RECOMMENDATION_STATUSES.COMPLETED]:
-    'bg-green-100 text-green-800',
-
-  [RECOMMENDATION_STATUSES.DISMISSED]:
-    'bg-gray-100 text-gray-500',
-}
-
-const STATUS_DOT = {
-  [RECOMMENDATION_STATUSES.PENDING]:
-    'bg-gray-400',
-
-  [RECOMMENDATION_STATUSES.ACCEPTED]:
-    'bg-blue-500',
-
-  [RECOMMENDATION_STATUSES.COMPLETED]:
-    'bg-green-600',
-
-  [RECOMMENDATION_STATUSES.DISMISSED]:
-    'bg-gray-400',
-}
-
-const PRIORITY_RANK = {
-  HIGH: 0,
-  MEDIUM: 1,
-  LOW: 2,
-}
-
-const EMPTY_FILTERS = {
+const DEFAULT_FILTERS = {
+  priority: '',
+  status: '',
   search: '',
-  project: 'all',
-  priority: 'all',
-  status: 'all',
 }
 
-/* -------------------------------------------------------------------------- */
-/* SMALL UI COMPONENTS                                                        */
-/* -------------------------------------------------------------------------- */
+/* =========================================================
+   PRIORITY STYLE
+========================================================= */
 
-function PriorityBadge({ priority }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-        PRIORITY_BADGES[priority] ||
-        PRIORITY_BADGES[PRIORITY_LEVELS.MEDIUM]
-      }`}
-    >
-      {priority || PRIORITY_LEVELS.MEDIUM} Priority
-    </span>
-  )
-}
+function priorityClass(priority) {
+  switch (priority) {
+    case 'HIGH':
+      return 'bg-red-50 text-red-700 border-red-100'
 
-function StatusChip({ status }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-        STATUS_CHIPS[status] ||
-        STATUS_CHIPS[RECOMMENDATION_STATUSES.PENDING]
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          STATUS_DOT[status] ||
-          STATUS_DOT[RECOMMENDATION_STATUSES.PENDING]
-        }`}
-        aria-hidden="true"
-      />
+    case 'MEDIUM':
+      return 'bg-amber-50 text-amber-700 border-amber-100'
 
-      {status}
-    </span>
-  )
-}
+    case 'LOW':
+      return 'bg-green-50 text-green-700 border-green-100'
 
-/* -------------------------------------------------------------------------- */
-/* FILTERING                                                                  */
-/* -------------------------------------------------------------------------- */
-function applyFilters(recommendations, filters) {
-  const q = filters.search.trim().toLowerCase()
-
-  const selectedPriority =
-    filters.priority !== 'all'
-      ? normalizeEnum(filters.priority)
-      : null
-
-  const selectedStatus =
-    filters.status !== 'all'
-      ? normalizeEnum(filters.status)
-      : null
-
-  return recommendations
-    .filter((rec) => {
-      // Project filter
-      if (filters.project !== 'all') {
-        if (
-          String(rec.projectId) !==
-          String(filters.project)
-        ) {
-          return false
-        }
-      }
-
-      // Priority filter
-      if (selectedPriority) {
-        const recommendationPriority =
-          normalizeEnum(rec.priority)
-
-        if (
-          recommendationPriority !==
-          selectedPriority
-        ) {
-          return false
-        }
-      }
-
-      // Status filter
-      if (selectedStatus) {
-        const recommendationStatus =
-          normalizeEnum(rec.status)
-
-        if (
-          recommendationStatus !==
-          selectedStatus
-        ) {
-          return false
-        }
-      }
-
-      // Search filter
-      if (q) {
-        const haystack = [
-          rec.project?.id,
-          rec.project?.name,
-          rec.project?.location,
-          rec.project?.district,
-          rec.project?.type,
-          rec.project?.stage,
-          rec.recommendation,
-          rec.title,
-          rec.type,
-          rec.priority,
-          rec.status,
-        ]
-
-        const matchesSearch = haystack.some(
-          (value) =>
-            String(value ?? '')
-              .toLowerCase()
-              .includes(q),
-        )
-
-        if (!matchesSearch) {
-          return false
-        }
-      }
-
-      return true
-    })
-    .sort(
-      (a, b) =>
-        (PRIORITY_RANK[
-          normalizeEnum(a.priority)
-        ] ?? 9) -
-          (PRIORITY_RANK[
-            normalizeEnum(b.priority)
-          ] ?? 9) ||
-        String(a.projectId).localeCompare(
-          String(b.projectId),
-        ),
-    )
-}
-/* -------------------------------------------------------------------------- */
-/* GROUPING                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function groupRecommendationsByProject(
-  recommendations,
-) {
-  const grouped = new Map()
-
-  recommendations.forEach((rec) => {
-    const projectId =
-      rec.projectId ?? rec.project?.id
-
-    if (!projectId) {
-      return
-    }
-
-    if (!grouped.has(projectId)) {
-      grouped.set(projectId, {
-        projectId,
-        project: rec.project || null,
-        recommendations: [],
-      })
-    }
-
-    grouped
-      .get(projectId)
-      .recommendations.push(rec)
-  })
-
-  return Array.from(grouped.values())
-}
-
-function getHighestPriority(recommendations) {
-  return (
-    recommendations
-      .map((rec) => rec.priority)
-      .sort(
-        (a, b) =>
-          (PRIORITY_RANK[a] ?? 9) -
-          (PRIORITY_RANK[b] ?? 9),
-      )[0] || PRIORITY_LEVELS.MEDIUM
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/* CURRENT ML RISK                                                             */
-/* -------------------------------------------------------------------------- */
-
-function getCurrentRisk(recommendations) {
-  for (const rec of recommendations) {
-    if (rec?.risk?.riskScore != null) {
-      return rec.risk.riskScore
-    }
+    default:
+      return 'bg-gray-50 text-gray-600 border-gray-100'
   }
-
-  return null
 }
 
-/* -------------------------------------------------------------------------- */
-/* RECOMMENDATION CARD                                                         */
-/* -------------------------------------------------------------------------- */
+/* =========================================================
+   STATUS STYLE
+========================================================= */
 
-function RecommendationCard({
-  project,
-  projectId,
-  recommendations,
-  onViewProject,
-  onStatusChange,
-  updatingId,
-}) {
-  const highestPriority =
-    getHighestPriority(recommendations)
+function statusClass(status) {
+  switch (status) {
+    case 'ACCEPTED':
+      return 'bg-blue-50 text-blue-700 border-blue-200'
 
-  const currentRisk =
-    getCurrentRisk(recommendations)
+    case 'COMPLETED':
+      return 'bg-green-50 text-green-700 border-green-200'
 
-  const projectName =
-    project?.name ||
-    project?.location ||
-    'Project'
+    case 'DISMISSED':
+      return 'bg-red-50 text-red-700 border-red-200'
 
-  const projectType =
-    project?.type ||
-    'Project'
-
-  const activeRecommendations =
-    recommendations.filter(
-      (rec) =>
-        rec.status !==
-          RECOMMENDATION_STATUSES.COMPLETED &&
-        rec.status !==
-          RECOMMENDATION_STATUSES.DISMISSED,
-    )
-
-  const projectIsActive =
-    activeRecommendations.length > 0
-
-  return (
-    <article
-      className={`rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${
-        highestPriority === PRIORITY_LEVELS.HIGH &&
-        projectIsActive
-          ? 'border-red-100'
-          : 'border-gray-100'
-      }`}
-    >
-      {/* ------------------------------------------------------------------ */}
-      {/* HEADER                                                             */}
-      {/* ------------------------------------------------------------------ */}
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <PriorityBadge
-            priority={highestPriority}
-          />
-
-          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary">
-            {recommendations.length}{' '}
-            {recommendations.length === 1
-              ? 'Recommendation'
-              : 'Recommendations'}
-          </span>
-        </div>
-
-        <span className="text-[10px] text-gray-400">
-          Project ID: {projectId}
-        </span>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* PROJECT INFORMATION                                                */}
-      {/* ------------------------------------------------------------------ */}
-
-      <div className="mt-3">
-        <h3 className="text-base font-bold text-gray-800">
-          {projectName}
-        </h3>
-
-        <p className="mt-0.5 text-[11px] text-gray-500">
-          {projectType}
-          {project?.district
-            ? ` · ${project.district}`
-            : ''}
-        </p>
-
-        <p className="mt-0.5 text-[10px] text-gray-400">
-          Project ID: {projectId}
-        </p>
-
-        {project?.stage ? (
-          <p className="mt-0.5 text-[10px] text-gray-400">
-            Current stage: {project.stage}
-          </p>
-        ) : null}
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* CURRENT ML RISK                                                     */}
-      {/* ------------------------------------------------------------------ */}
-
-      {currentRisk != null ? (
-        <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-            Current Risk
-          </p>
-
-          <p className="mt-0.5 text-xs text-gray-700">
-            Risk score:{' '}
-            <span className="font-semibold">
-              {currentRisk}
-            </span>
-          </p>
-        </div>
-      ) : null}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* RECOMMENDATIONS                                                     */}
-      {/* ------------------------------------------------------------------ */}
-
-      <div className="mt-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-          Recommended Actions
-        </p>
-
-        <div className="mt-2 space-y-2">
-          {recommendations.map((rec) => {
-            const isCompleted =
-              rec.status ===
-              RECOMMENDATION_STATUSES.COMPLETED
-
-            const isDismissed =
-              rec.status ===
-              RECOMMENDATION_STATUSES.DISMISSED
-
-            const isUpdating =
-              updatingId === rec.id
-
-            return (
-              <div
-                key={rec.id}
-                className={`rounded-lg border p-3 ${
-                  isCompleted || isDismissed
-                    ? 'border-gray-100 bg-gray-50'
-                    : 'border-gray-100 bg-primary-50'
-                }`}
-              >
-                {/* Recommendation text */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <Check
-                      className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                        isCompleted || isDismissed
-                          ? 'text-gray-300'
-                          : 'text-primary'
-                      }`}
-                      aria-hidden="true"
-                    />
-
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        isCompleted || isDismissed
-                          ? 'text-gray-400'
-                          : 'text-gray-700'
-                      }`}
-                    >
-                      {rec.recommendation ||
-                        rec.title ||
-                        'Recommendation'}
-                    </p>
-                  </div>
-
-                  <PriorityBadge
-                    priority={rec.priority}
-                  />
-                </div>
-
-                {/* -------------------------------------------------------- */}
-                {/* STATUS + STATUS UPDATE                                   */}
-                {/* -------------------------------------------------------- */}
-
-                <div className="mt-3 flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <StatusChip status={rec.status} />
-
-                    {isUpdating ? (
-                      <span className="text-[10px] text-gray-400">
-                        Updating...
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-[10px] font-medium text-gray-500">
-                      Update status
-                    </label>
-
-                    <Select
-                      value={rec.status}
-                      onChange={(e) =>
-                        onStatusChange(
-                          rec.id,
-                          e.target.value,
-                        )
-                      }
-                      disabled={isUpdating}
-                      options={[
-                        {
-                          value:
-                            RECOMMENDATION_STATUSES.PENDING,
-                          label: 'Pending',
-                        },
-                        {
-                          value:
-                            RECOMMENDATION_STATUSES.ACCEPTED,
-                          label: 'Accepted',
-                        },
-                        {
-                          value:
-                            RECOMMENDATION_STATUSES.DISMISSED,
-                          label: 'Dismissed',
-                        },
-                        {
-                          value:
-                            RECOMMENDATION_STATUSES.COMPLETED,
-                          label: 'Completed',
-                        },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                {/* Generated date */}
-                {rec.created_at ? (
-                  <p className="mt-2 text-[9px] text-gray-400">
-                    Generated{' '}
-                    {formatDateTimeShort(
-                      rec.created_at,
-                    )}
-                  </p>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* VIEW PROJECT                                                        */}
-      {/* ------------------------------------------------------------------ */}
-
-      <div className="mt-3 flex items-center border-t border-gray-50 pt-3">
-        <Button
-          variant="outline"
-          size="sm"
-          icon={Eye}
-          onClick={() =>
-            onViewProject(projectId)
-          }
-        >
-          View Project
-        </Button>
-      </div>
-    </article>
-  )
+    case 'PENDING':
+    default:
+      return 'bg-amber-50 text-amber-700 border-amber-200'
+  }
 }
 
-/* -------------------------------------------------------------------------- */
-/* MAIN PAGE                                                                  */
-/* -------------------------------------------------------------------------- */
+/* =========================================================
+   STATUS LABEL
+========================================================= */
+
+function getStatusLabel(status) {
+  switch (status) {
+    case 'PENDING':
+      return 'Pending'
+
+    case 'ACCEPTED':
+      return 'Accepted'
+
+    case 'DISMISSED':
+      return 'Dismissed'
+
+    case 'COMPLETED':
+      return 'Completed'
+
+    default:
+      return status || 'Pending'
+  }
+}
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
 
 export default function Recommendations() {
   const navigate = useNavigate()
@@ -559,585 +158,997 @@ export default function Recommendations() {
     refetch,
     updateStatus,
     updatingId,
-    lastUpdated,
     generateRecommendations,
     generating,
   } = useRecommendations()
 
-  const [filters, setFilters] =
-    useState(EMPTY_FILTERS)
+  const {
+    projects,
+    loading: projectsLoading,
+  } = useProjects({
+    pageSize: 100,
+  })
 
-  const [actionError, setActionError] =
-    useState(null)
-
-  const [generationError, setGenerationError] =
-    useState(null)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
 
   const [selectedProjectId, setSelectedProjectId] =
     useState('')
 
-  /* ---------------------------------------------------------------------- */
-  /* GENERATE                                                               */
-  /* ---------------------------------------------------------------------- */
+  const [generateError, setGenerateError] =
+    useState('')
+
+  const [generateSuccess, setGenerateSuccess] =
+    useState('')
+
+  const [statusError, setStatusError] =
+    useState('')
+
+  /* =========================================================
+     PROJECT OPTIONS
+
+     IMPORTANT:
+     Backend expects public project_id.
+
+     Example:
+     /projects/SEED-P1/recommendations/generate
+
+     NOT:
+     /projects/3/recommendations/generate
+  ========================================================= */
+
+  const projectOptions = useMemo(() => {
+    return projects.map((project) => {
+      const publicProjectId =
+        project.project_id ||
+        project.projectId ||
+        project.id
+
+      return {
+        value: publicProjectId,
+
+        label: `${publicProjectId} — ${
+          project.name ||
+          project.location ||
+          'Project'
+        }`,
+      }
+    })
+  }, [projects])
+
+  /* =========================================================
+     ACTIVE RECOMMENDATIONS
+
+     IMPORTANT:
+     COMPLETED and DISMISSED recommendations are kept
+     in the database but are hidden from the active UI.
+  ========================================================= */
+
+  const activeRecommendations = useMemo(() => {
+    return recommendations.filter(
+      (recommendation) =>
+        recommendation.status !== 'DISMISSED' &&
+        recommendation.status !== 'COMPLETED',
+    )
+  }, [recommendations])
+
+  /* =========================================================
+     FILTER RECOMMENDATIONS
+  ========================================================= */
+
+  const filteredRecommendations = useMemo(() => {
+    const query = filters.search
+      .trim()
+      .toLowerCase()
+
+    return activeRecommendations.filter(
+      (recommendation) => {
+        /* Priority filter */
+
+        if (
+          filters.priority &&
+          recommendation.priority !==
+            filters.priority
+        ) {
+          return false
+        }
+
+        /* Status filter */
+
+        if (
+          filters.status &&
+          recommendation.status !==
+            filters.status
+        ) {
+          return false
+        }
+
+        /* Search */
+
+        if (query) {
+          const text = [
+            recommendation.title,
+            recommendation.recommendation,
+            recommendation.type,
+            recommendation.projectId,
+            recommendation.project?.id,
+            recommendation.project?.name,
+            recommendation.project?.district,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+
+          if (!text.includes(query)) {
+            return false
+          }
+        }
+
+        return true
+      },
+    )
+  }, [
+    activeRecommendations,
+    filters,
+  ])
+
+  /* =========================================================
+     STATISTICS
+
+     Statistics are calculated from ALL recommendations,
+     including completed/dismissed records.
+  ========================================================= */
+
+  const stats = useMemo(() => {
+    return {
+      total: recommendations.length,
+
+      pending: recommendations.filter(
+        (recommendation) =>
+          recommendation.status === 'PENDING',
+      ).length,
+
+      accepted: recommendations.filter(
+        (recommendation) =>
+          recommendation.status === 'ACCEPTED',
+      ).length,
+
+      highPriority: recommendations.filter(
+        (recommendation) =>
+          recommendation.priority === 'HIGH',
+      ).length,
+
+      completed: recommendations.filter(
+        (recommendation) =>
+          recommendation.status === 'COMPLETED',
+      ).length,
+
+      dismissed: recommendations.filter(
+        (recommendation) =>
+          recommendation.status === 'DISMISSED',
+      ).length,
+    }
+  }, [recommendations])
+
+  /* =========================================================
+     FILTER STATE
+  ========================================================= */
+
+  const hasFilters = Boolean(
+    filters.priority ||
+      filters.status ||
+      filters.search,
+  )
+
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+  }
+
+  /* =========================================================
+     SELECTED PROJECT
+  ========================================================= */
+
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId) {
+      return null
+    }
+
+    return (
+      projects.find(
+        (project) =>
+          String(
+            project.project_id ||
+              project.projectId ||
+              project.id,
+          ) === String(selectedProjectId),
+      ) || null
+    )
+  }, [
+    projects,
+    selectedProjectId,
+  ])
+
+  /* =========================================================
+     GENERATE AI RECOMMENDATIONS
+  ========================================================= */
 
   const handleGenerate = async () => {
-    if (!selectedProjectId) {
-      setGenerationError(
+    setGenerateError('')
+    setGenerateSuccess('')
+
+    if (!selectedProject) {
+      setGenerateError(
         'Please select a project first.',
       )
+
+      return
+    }
+
+    const publicProjectId =
+      selectedProject.project_id ||
+      selectedProject.projectId
+
+    if (!publicProjectId) {
+      setGenerateError(
+        'Unable to find the project_id for this project.',
+      )
+
       return
     }
 
     try {
-      setGenerationError(null)
+      console.log(
+        'Generating recommendations for project_id:',
+        publicProjectId,
+      )
 
       await generateRecommendations(
-        selectedProjectId,
+        publicProjectId,
+      )
+
+      setGenerateSuccess(
+        `AI recommendations generated successfully for ${publicProjectId}.`,
       )
 
       await refetch()
-
-      setSelectedProjectId('')
-    } catch (error) {
+    } catch (err) {
       console.error(
         'Failed to generate recommendations:',
-        error,
+        err,
       )
 
-      setGenerationError(
-        'Unable to generate AI recommendations.',
+      setGenerateError(
+        err?.message ||
+          'Failed to generate AI recommendations. Please try again.',
       )
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* FILTERED DATA                                                          */
-  /* ---------------------------------------------------------------------- */
-
-  const filtered = useMemo(
-    () =>
-      applyFilters(
-        recommendations,
-        filters,
-      ),
-    [recommendations, filters],
-  )
-
-  const groupedRecommendations = useMemo(
-    () =>
-      groupRecommendationsByProject(
-        filtered,
-      ),
-    [filtered],
-  )
-
-  /* ---------------------------------------------------------------------- */
-  /* SUMMARY                                                                */
-  /* ---------------------------------------------------------------------- */
-
-  const summary = useMemo(
-    () => ({
-      total: recommendations.length,
-
-      high: recommendations.filter(
-        (r) =>
-          r.priority ===
-          PRIORITY_LEVELS.HIGH,
-      ).length,
-
-      pending: recommendations.filter(
-        (r) =>
-          r.status ===
-          RECOMMENDATION_STATUSES.PENDING,
-      ).length,
-
-      accepted: recommendations.filter(
-        (r) =>
-          r.status ===
-          RECOMMENDATION_STATUSES.ACCEPTED,
-      ).length,
-
-      completed: recommendations.filter(
-        (r) =>
-          r.status ===
-          RECOMMENDATION_STATUSES.COMPLETED,
-      ).length,
-
-      dismissed: recommendations.filter(
-        (r) =>
-          r.status ===
-          RECOMMENDATION_STATUSES.DISMISSED,
-      ).length,
-    }),
-    [recommendations],
-  )
-
-  /* ---------------------------------------------------------------------- */
-  /* IMMEDIATE ATTENTION                                                    */
-  /* ---------------------------------------------------------------------- */
-
-  const attention = useMemo(() => {
-    const highPriorityActive =
-      recommendations.filter(
-        (r) =>
-          r.priority ===
-            PRIORITY_LEVELS.HIGH &&
-          r.status !==
-            RECOMMENDATION_STATUSES.COMPLETED &&
-          r.status !==
-            RECOMMENDATION_STATUSES.DISMISSED,
-      )
-
-    return groupRecommendationsByProject(
-      highPriorityActive,
-    ).slice(0, 3)
-  }, [recommendations])
-
-  /* ---------------------------------------------------------------------- */
-  /* PROJECT OPTIONS                                                        */
-  /* ---------------------------------------------------------------------- */
-
-  const projectOptions = useMemo(() => {
-    const projects = new Map()
-
-    recommendations.forEach((rec) => {
-      const projectId =
-        rec.projectId ??
-        rec.project?.id
-
-      if (!projectId) {
-        return
-      }
-
-      if (!projects.has(String(projectId))) {
-        projects.set(String(projectId), {
-          id: String(projectId),
-          project: rec.project || null,
-        })
-      }
-    })
-
-    return Array.from(projects.values())
-      .sort((a, b) =>
-        a.id.localeCompare(b.id),
-      )
-      .map(({ id, project }) => ({
-        value: id,
-        label: `${
-          project?.name ||
-          project?.location ||
-          'Project'
-        } — ${id}`,
-      }))
-  }, [recommendations])
-
-  /* ---------------------------------------------------------------------- */
-  /* FILTER COUNT                                                           */
-  /* ---------------------------------------------------------------------- */
-
-  const activeFilterCount =
-    (filters.search ? 1 : 0) +
-    [
-      filters.project,
-      filters.priority,
-      filters.status,
-    ].filter(
-      (value) => value !== 'all',
-    ).length
-
-  /* ---------------------------------------------------------------------- */
-  /* STATUS UPDATE                                                          */
-  /* ---------------------------------------------------------------------- */
+  /* =========================================================
+     CHANGE RECOMMENDATION STATUS
+  ========================================================= */
 
   const handleStatusChange = async (
-    recId,
+    recommendationId,
     status,
   ) => {
-    setActionError(null)
+    setStatusError('')
 
     try {
-      await updateStatus(recId, status)
-
-      /*
-       * Reload data after successful update
-       * so the UI always reflects the database.
-       */
-      await refetch()
-    } catch (error) {
-      console.error(
-        'Failed to update recommendation:',
-        error,
+      await updateStatus(
+        recommendationId,
+        status,
       )
 
-      setActionError(
-        'Unable to update recommendation. Please retry.',
+      /*
+       * React Query invalidates the recommendations query
+       * after updateStatus succeeds.
+       *
+       * Because activeRecommendations filters out
+       * COMPLETED and DISMISSED, those cards disappear
+       * automatically.
+       */
+    } catch (err) {
+      console.error(
+        'Failed to update recommendation status:',
+        err,
+      )
+
+      setStatusError(
+        err?.message ||
+          'Failed to update recommendation status.',
       )
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* VIEW PROJECT                                                           */
-  /* ---------------------------------------------------------------------- */
-
-  const viewProject = (projectId) => {
-    navigate(
-      `/project-manager/projects/${projectId}`,
-    )
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* RENDER                                                                 */
-  /* ---------------------------------------------------------------------- */
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <DashboardLayout activeKey="recommendations">
       <PageHeader
         title="AI Recommendations"
-        subtitle="Project-specific corrective actions generated from the latest risk prediction."
+        subtitle="Generate and manage AI-powered recommendations for project risks."
         actions={
-          <>
-            {lastUpdated ? (
-              <span className="hidden text-[11px] text-gray-400 lg:inline">
-                Last Updated{' '}
-                {formatDateTimeShort(
-                  lastUpdated,
-                )}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-100 bg-white px-3 py-1.5 text-xs shadow-sm">
+              <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+
+              <span className="font-medium text-gray-700">
+                Active Recommendations
               </span>
-            ) : null}
+
+              <span className="font-semibold text-gray-500">
+                {activeRecommendations.length}
+              </span>
+            </span>
 
             <Button
               variant="outline"
               size="sm"
               icon={RefreshCw}
-              onClick={refetch}
+              onClick={() => refetch()}
+              disabled={loading}
             >
               Refresh
             </Button>
-          </>
+          </div>
         }
       />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* GENERATE RECOMMENDATIONS                                           */}
-      {/* ------------------------------------------------------------------ */}
+      {/* =====================================================
+          KPI CARDS
+      ===================================================== */}
+
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          icon={BrainCircuit}
+          value={activeRecommendations.length}
+          label="Active Recommendations"
+        />
+
+        <SummaryCard
+          icon={Clock3}
+          value={stats.pending}
+          label="Pending"
+        />
+
+        <SummaryCard
+          icon={AlertCircle}
+          value={stats.highPriority}
+          label="High Priority"
+          accent="text-red-600"
+          bg="bg-red-50"
+        />
+
+        <SummaryCard
+          icon={CheckCircle2}
+          value={stats.accepted}
+          label="Accepted"
+          accent="text-blue-600"
+          bg="bg-blue-50"
+        />
+      </div>
+
+      {/* =====================================================
+          GENERATE AI RECOMMENDATIONS
+      ===================================================== */}
 
       <section className="mb-5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-              Generate recommendations for a project
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 text-accent">
+                <Sparkles className="h-4 w-4" />
+              </span>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">
+                  Generate AI Recommendations
+                </h3>
+
+                <p className="text-[11px] text-gray-400">
+                  Gemini will analyze the project's risk,
+                  prediction and recent status history.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <span className="rounded-full bg-accent-50 px-2.5 py-1 text-[10px] font-semibold text-accent">
+            Gemini AI
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">
+              Select Project
             </label>
 
-            <Select
-              value={selectedProjectId}
-              onChange={(e) =>
-                setSelectedProjectId(
-                  e.target.value,
-                )
-              }
-              options={[
-                {
-                  value: '',
-                  label: 'Select a project',
-                },
-                ...projectOptions,
-              ]}
-            />
+            {projectsLoading ? (
+              <div className="flex h-10 items-center rounded-lg border border-gray-200 px-3 text-xs text-gray-400">
+                Loading projects...
+              </div>
+            ) : (
+              <FilterDropdown
+                options={projectOptions}
+                value={selectedProjectId}
+                onChange={(value) => {
+                  setSelectedProjectId(value)
+                  setGenerateError('')
+                  setGenerateSuccess('')
+                }}
+                allLabel="Select a project"
+                className="w-full"
+              />
+            )}
           </div>
 
           <Button
-            icon={Sparkles}
-            onClick={handleGenerate}
-            disabled={
-              !selectedProjectId ||
+            type="button"
+            icon={
               generating
+                ? Loader2
+                : Sparkles
             }
+            disabled={
+              generating ||
+              projectsLoading ||
+              !selectedProjectId
+            }
+            onClick={handleGenerate}
           >
             {generating
-              ? 'Generating…'
+              ? 'Generating...'
               : 'Generate AI Recommendations'}
           </Button>
         </div>
 
-        <p className="mt-2 text-[10px] text-gray-400">
-          Gemini analyzes the selected project
-          and returns multiple corrective
-          recommendations.
-        </p>
+        {/* Selected project */}
 
-        {generationError ? (
-          <p className="mt-2 text-[11px] text-red-600">
-            {generationError}
-          </p>
+        {selectedProject ? (
+          <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  Project ID
+                </p>
+
+                <p className="mt-0.5 text-xs font-semibold text-gray-700">
+                  {selectedProject.project_id ||
+                    selectedProject.projectId}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  Project
+                </p>
+
+                <p className="mt-0.5 truncate text-xs font-semibold text-gray-700">
+                  {selectedProject.name ||
+                    selectedProject.location ||
+                    'Project'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  District
+                </p>
+
+                <p className="mt-0.5 text-xs font-semibold text-gray-700">
+                  {selectedProject.district ||
+                    '—'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  Stage
+                </p>
+
+                <p className="mt-0.5 text-xs font-semibold text-gray-700">
+                  {selectedProject.current_stage ||
+                    selectedProject.stage ||
+                    '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Success */}
+
+        {generateSuccess ? (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-700">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+
+            <div className="flex-1">
+              <p className="font-semibold">
+                Success
+              </p>
+
+              <p className="mt-0.5">
+                {generateSuccess}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setGenerateSuccess('')
+              }
+              className="text-green-600 hover:text-green-800"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        {/* Generate error */}
+
+        {generateError ? (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+            <div className="flex-1">
+              <p className="font-semibold">
+                Unable to generate recommendations
+              </p>
+
+              <p className="mt-0.5">
+                {generateError}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setGenerateError('')
+              }
+              className="text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
         ) : null}
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* LOADING / ERROR / CONTENT                                          */}
-      {/* ------------------------------------------------------------------ */}
+      {/* =====================================================
+          FILTERS
+      ===================================================== */}
 
-      {loading ? (
-        <div className="flex min-h-[300px] items-center justify-center">
-          <Loader label="Loading recommendations…" />
+      <section className="mb-5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-400" />
+
+          <h3 className="text-sm font-semibold text-gray-700">
+            Filter Recommendations
+          </h3>
         </div>
-      ) : error ? (
-        <ErrorState
-          message="Unable to load recommendations."
-          onRetry={refetch}
-        />
-      ) : recommendations.length === 0 ? (
-        <EmptyState
-          title="No recommendations available."
-          message="Generate recommendations for a project when corrective action is required."
-        />
-      ) : (
-        <div className="flex flex-col gap-5">
-          {/* ---------------------------------------------------------------- */}
-          {/* SUMMARY                                                          */}
-          {/* ---------------------------------------------------------------- */}
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <SummaryCard
-              label="Total"
-              value={summary.total}
-              tone="text-primary"
-              bg="bg-primary-50"
-            />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          {/* Priority */}
 
-            <SummaryCard
-              label="High Priority"
-              value={summary.high}
-              tone="text-red-600"
-              bg="bg-red-50"
-            />
+          <div className="flex min-w-[160px] flex-col gap-1">
+            <span className="text-xs font-medium text-gray-600">
+              Priority
+            </span>
 
-            <SummaryCard
-              label="Pending"
-              value={summary.pending}
-              tone="text-gray-600"
-              bg="bg-gray-50"
-            />
-
-            <SummaryCard
-              label="Accepted"
-              value={summary.accepted}
-              tone="text-blue-600"
-              bg="bg-blue-50"
-            />
-
-            <SummaryCard
-              label="Completed"
-              value={summary.completed}
-              tone="text-green-600"
-              bg="bg-green-50"
+            <FilterDropdown
+              options={PRIORITIES}
+              value={filters.priority}
+              onChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  priority: value,
+                }))
+              }
+              allLabel="All Priorities"
+              className="w-full"
             />
           </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* FILTERS                                                          */}
-          {/* ---------------------------------------------------------------- */}
+          {/* Status */}
 
-          <section className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <SearchBar
-                placeholder="Search projects or recommendations…"
-                value={filters.search}
-                onChange={(value) =>
-                  setFilters((current) => ({
-                    ...current,
-                    search: value,
-                  }))
-                }
-                className="lg:col-span-2"
-              />
+          <div className="flex min-w-[160px] flex-col gap-1">
+            <span className="text-xs font-medium text-gray-600">
+              Status
+            </span>
 
-              <Select
-                label="Project"
-                value={filters.project}
-                onChange={(e) =>
-                  setFilters((current) => ({
-                    ...current,
-                    project:
-                      e.target.value,
-                  }))
-                }
-                options={[
-                  {
-                    value: 'all',
-                    label: 'All Projects',
-                  },
-                  ...projectOptions,
-                ]}
-              />
+            <FilterDropdown
+              options={STATUSES}
+              value={filters.status}
+              onChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  status: value,
+                }))
+              }
+              allLabel="All Active Statuses"
+              className="w-full"
+            />
+          </div>
 
-              <Select
-                label="Priority"
-                value={filters.priority}
-                onChange={(e) =>
-                  setFilters((current) => ({
-                    ...current,
-                    priority:
-                      e.target.value,
-                  }))
-                }
-                options={[
-                  {
-                    value: 'all',
-                    label: 'All Priorities',
-                  },
-                  ...Object.values(
-                    PRIORITY_LEVELS,
-                  ).map((value) => ({
-                    value,
-                    label: value,
-                  })),
-                ]}
-              />
+          {/* Search */}
 
-              <Select
-                label="Status"
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((current) => ({
-                    ...current,
-                    status:
-                      e.target.value,
-                  }))
-                }
-                options={[
-                  {
-                    value: 'all',
-                    label: 'All Status',
-                  },
-                  ...Object.values(
-                    RECOMMENDATION_STATUSES,
-                  ).map((value) => ({
-                    value,
-                    label: value,
-                  })),
-                ]}
-              />
-            </div>
+          <SearchBar
+            placeholder="Search recommendations..."
+            value={filters.search}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                search: value,
+              }))
+            }
+            className="w-full lg:w-72"
+          />
 
-            <div className="mt-3 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setFilters({
-                    ...EMPTY_FILTERS,
-                  })
-                }
-                disabled={
-                  activeFilterCount === 0
-                }
-              >
-                Reset Filters
-                {activeFilterCount > 0
-                  ? ` (${activeFilterCount})`
-                  : ''}
-              </Button>
-            </div>
-          </section>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs text-gray-500">
+              {filteredRecommendations.length}{' '}
+              {filteredRecommendations.length === 1
+                ? 'recommendation'
+                : 'recommendations'}
+            </span>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* IMMEDIATE ATTENTION                                              */}
-          {/* ---------------------------------------------------------------- */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              disabled={!hasFilters}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </section>
 
-          {attention.length > 0 ? (
-            <section>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Needs Immediate Attention
-              </h2>
+      {/* =====================================================
+          STATUS UPDATE ERROR
+      ===================================================== */}
 
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                {attention.map((group) => (
-                  <RecommendationCard
-                    key={group.projectId}
-                    project={group.project}
-                    projectId={
-                      group.projectId
-                    }
-                    recommendations={
-                      group.recommendations
-                    }
-                    updatingId={updatingId}
-                    onViewProject={
-                      viewProject
-                    }
-                    onStatusChange={
-                      handleStatusChange
-                    }
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+      {statusError ? (
+        <section className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+          <div className="flex items-center justify-between gap-3">
+            <span>
+              {statusError}
+            </span>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* ALL PROJECTS                                                     */}
-          {/* ---------------------------------------------------------------- */}
+            <button
+              type="button"
+              onClick={() =>
+                setStatusError('')
+              }
+              className="font-semibold"
+            >
+              ×
+            </button>
+          </div>
+        </section>
+      ) : null}
 
-          <section>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">
-              All Projects (
-              {groupedRecommendations.length})
-            </h2>
+      {/* =====================================================
+          API ERROR
+      ===================================================== */}
 
-            {groupedRecommendations.length ===
-            0 ? (
-              <EmptyState
-                title="No recommendations match the selected filters."
-                message="Adjust the filters above or reset them to see all recommendations."
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                {groupedRecommendations.map(
-                  (group) => (
-                    <RecommendationCard
-                      key={group.projectId}
-                      project={group.project}
-                      projectId={
-                        group.projectId
-                      }
-                      recommendations={
-                        group.recommendations
-                      }
-                      updatingId={updatingId}
-                      onViewProject={
-                        viewProject
-                      }
-                      onStatusChange={
-                        handleStatusChange
-                      }
-                    />
-                  ),
-                )}
-              </div>
-            )}
-          </section>
+      {error ? (
+        <section className="mb-5 rounded-xl border border-red-100 bg-white shadow-sm">
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <AlertCircle className="mb-2 h-7 w-7 text-red-500" />
+
+            <h3 className="text-sm font-semibold text-gray-800">
+              Unable to load recommendations
+            </h3>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Something went wrong while loading the
+              recommendation list.
+            </p>
+
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={() => refetch()}
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {/* =====================================================
+          LOADING
+      ===================================================== */}
+
+      {loading ? (
+        <Loader
+          label="Loading recommendations..."
+          fullPage
+          className="mt-6"
+        />
+      ) : filteredRecommendations.length ===
+        0 ? (
+        <section className="rounded-xl border border-gray-100 bg-white p-8 shadow-sm">
+          <EmptyState
+            icon={BrainCircuit}
+            title={
+              activeRecommendations.length === 0
+                ? 'No Active AI Recommendations'
+                : 'No Recommendations Match'
+            }
+            message={
+              activeRecommendations.length === 0
+                ? 'Select a project above and generate AI recommendations using Gemini.'
+                : 'Try changing the selected filters.'
+            }
+          />
+        </section>
+      ) : (
+        /* =====================================================
+           RECOMMENDATION LIST
+        ===================================================== */
+
+        <div className="flex flex-col gap-4">
+          {filteredRecommendations.map(
+            (recommendation) => {
+              const project =
+                recommendation.project
+
+              return (
+                <article
+                  key={recommendation.id}
+                  className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+                >
+                  {/* =================================================
+                     HEADER
+                  ================================================= */}
+
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent">
+                        <BrainCircuit className="h-5 w-5" />
+                      </span>
+
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-800">
+                          {recommendation.title ||
+                            recommendation.recommendation}
+                        </h3>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
+                          <span>
+                            {project?.id ||
+                              recommendation.projectId}
+                          </span>
+
+                          <span>•</span>
+
+                          <span>
+                            {project?.name ||
+                              'Project'}
+                          </span>
+
+                          {project?.district ? (
+                            <>
+                              <span>•</span>
+
+                              <span>
+                                {project.district}
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Priority + Current Status */}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${priorityClass(
+                          recommendation.priority,
+                        )}`}
+                      >
+                        {recommendation.priority}
+                      </span>
+
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusClass(
+                          recommendation.status,
+                        )}`}
+                      >
+                        {getStatusLabel(
+                          recommendation.status,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* =================================================
+                     RECOMMENDATION
+                  ================================================= */}
+
+                  <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-accent" />
+
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        Recommended Action
+                      </span>
+                    </div>
+
+                    <p className="text-xs leading-relaxed text-gray-700">
+                      {recommendation.recommendation}
+                    </p>
+                  </div>
+
+                  {/* =================================================
+                     RISK INFORMATION
+                  ================================================= */}
+
+                  {recommendation.risk ? (
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-lg border border-gray-100 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                          Risk Level
+                        </p>
+
+                        <div className="mt-1">
+                          <RiskBadge
+                            level={
+                              recommendation.risk
+                                .riskLevel
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-gray-100 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                          Delay Probability
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-gray-800">
+                          {
+                            recommendation.risk
+                              .delayProbability
+                          }
+                          %
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-gray-100 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                          Top Risk Factor
+                        </p>
+
+                        <p className="mt-1 truncate text-xs font-semibold text-gray-700">
+                          {
+                            recommendation.risk
+                              .topFactor
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* =================================================
+                     ACTIONS / STATUS CONTROL
+                  ================================================= */}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                    {/* View project */}
+
+                    {project?.id ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          navigate(
+                            `/project-manager/projects/${project.id}`,
+                          )
+                        }
+                        icon={ArrowRight}
+                      >
+                        View Project
+                      </Button>
+                    ) : null}
+
+                    {/* =================================================
+                       STATUS SELECTOR
+                       
+                       PM can choose:
+                       PENDING
+                       ACCEPTED
+                       DISMISSED
+                       COMPLETED
+                    ================================================= */}
+
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor={`status-${recommendation.id}`}
+                        className="text-[11px] font-medium text-gray-500"
+                      >
+                        Status:
+                      </label>
+
+                      <select
+                        id={`status-${recommendation.id}`}
+                        value={
+                          recommendation.status ||
+                          'PENDING'
+                        }
+                        disabled={
+                          updatingId ===
+                          recommendation.id
+                        }
+                        onChange={(event) =>
+                          handleStatusChange(
+                            recommendation.id,
+                            event.target.value,
+                          )
+                        }
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold outline-none transition focus:ring-2 focus:ring-accent/20 ${statusClass(
+                          recommendation.status,
+                        )} ${
+                          updatingId ===
+                          recommendation.id
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer'
+                        }`}
+                      >
+                        {STATUSES.map(
+                          (status) => (
+                            <option
+                              key={
+                                status.value
+                              }
+                              value={
+                                status.value
+                              }
+                            >
+                              {status.label}
+                            </option>
+                          ),
+                        )}
+                      </select>
+
+                      {updatingId ===
+                      recommendation.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                      ) : null}
+                    </div>
+
+                    {/* Status explanation */}
+
+                    <span className="ml-auto text-[10px] text-gray-400">
+                      {recommendation.status ===
+                      'PENDING'
+                        ? 'Awaiting PM action'
+                        : recommendation.status ===
+                          'ACCEPTED'
+                          ? 'Action accepted by PM'
+                          : ''}
+                    </span>
+
+                    {/* AI label */}
+
+                    <span className="inline-flex items-center gap-1.5 text-[10px] text-gray-400">
+                      <FileText className="h-3 w-3" />
+                      AI generated recommendation
+                    </span>
+                  </div>
+                </article>
+              )
+            },
+          )}
         </div>
       )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* ACTION ERROR                                                        */}
-      {/* ------------------------------------------------------------------ */}
-
-      {actionError ? (
-        <p className="mt-3 text-[11px] text-red-600">
-          {actionError}
-
-          <button
-            type="button"
-            onClick={() =>
-              setActionError(null)
-            }
-            className="ml-2 underline"
-          >
-            Dismiss
-          </button>
-        </p>
-      ) : null}
     </DashboardLayout>
   )
 }

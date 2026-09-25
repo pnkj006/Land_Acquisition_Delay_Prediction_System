@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   RefreshCw,
   Percent,
 } from 'lucide-react'
+
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx'
 import SummaryCard from '../../components/dashboard/SummaryCard.jsx'
 import RecentAlerts from '../../components/dashboard/RecentAlerts.jsx'
@@ -26,117 +28,406 @@ import ProjectProgress from '../../components/projects/ProjectProgress.jsx'
 import Recommendations from '../../components/projects/Recommendations.jsx'
 import RiskBadge from '../../components/common/RiskBadge.jsx'
 import Loader from '../../components/common/Loader.jsx'
+
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useDashboard } from '../../hooks/useDashboard.js'
 import { useProjects } from '../../hooks/useProjects.js'
 import { useRisk } from '../../hooks/useRisk.js'
-import {
-  getRecommendations,
-  generateRecommendations,
-} from '../../api/recommendations.api'
-import { getTypeIcon } from '../../utils/typeIcons'
-import {  formatDateTimeShort, formatRiskScore } from '../../utils/formatters'
 
-const TABS = ['Overview', 'Risk Analysis', 'Explanation (XAI)', 'Recommendations', 'Progress', 'Documents']
+import { getRecommendations } from '../../api/recommendations.api'
+import { getStageProgress } from '../../api/projects.api'
+
+import { getTypeIcon } from '../../utils/typeIcons'
+import {
+  formatDateTimeShort,
+  formatRiskScore,
+} from '../../utils/formatters'
+
+const TABS = [
+  'Overview',
+  'Risk Analysis',
+  'Explanation (XAI)',
+  'Recommendations',
+  'Progress',
+  'Documents',
+]
 
 export default function ProjectManagerDashboard() {
   const { user } = useAuth()
   const districtText = user?.district || 'All Districts'
-  
+
   const { summary, loading: summaryLoading } = useDashboard()
-  const { projects, pagination, loading: projectsLoading, error: projectsError, filters, setFilters, refetch } = useProjects({ pageSize: 5 })
+
+  const {
+    projects,
+    pagination,
+    loading: projectsLoading,
+    error: projectsError,
+    filters,
+    setFilters,
+    refetch,
+  } = useProjects({ pageSize: 5 })
 
   const navigate = useNavigate()
-  const [selectedId, setSelectedId] = useState('P101')
+
+  // ---------------------------------------------------------------------------
+  // Selected project / tab
+  // ---------------------------------------------------------------------------
+
+  const [selectedId, setSelectedId] = useState(null)
   const [activeTab, setActiveTab] = useState('Overview')
+
+  // ---------------------------------------------------------------------------
+  // Recommendations
+  // ---------------------------------------------------------------------------
+
   const [recommendations, setRecommendations] = useState([])
   const [recsLoading, setRecsLoading] = useState(true)
-  const [generatingRecommendations, setGeneratingRecommendations] = useState(false)
 
-  const selectedProject = useMemo(
-    () => projects.find((p) => p.id === selectedId) || projects[0] || null,
-    [projects, selectedId],
-  )
-  const SelectedTypeIcon = selectedProject ? getTypeIcon(selectedProject.type) : null
+  // ---------------------------------------------------------------------------
+  // Stage progress
+  // ---------------------------------------------------------------------------
 
-  const { prediction, loading: riskLoading } = useRisk(selectedProject ? selectedProject.id : null)
+  const [stageProgress, setStageProgress] = useState([])
+  const [stageProgressCurrentStage, setStageProgressCurrentStage] =
+    useState(null)
+
+  const [stageProgressLoading, setStageProgressLoading] =
+    useState(false)
+
+  // ---------------------------------------------------------------------------
+  // Select first project automatically when projects arrive
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!selectedProject) return
+    if (!projects.length) {
+      setSelectedId(null)
+      return
+    }
+
+    const selectedStillExists = projects.some(
+      (project) => project.id === selectedId,
+    )
+
+    if (!selectedStillExists) {
+      setSelectedId(projects[0].id)
+    }
+  }, [projects, selectedId])
+
+  // ---------------------------------------------------------------------------
+  // Selected project
+  // ---------------------------------------------------------------------------
+
+  const selectedProject = useMemo(
+    () =>
+      projects.find((project) => project.id === selectedId) ||
+      projects[0] ||
+      null,
+    [projects, selectedId],
+  )
+
+  const SelectedTypeIcon = selectedProject
+    ? getTypeIcon(selectedProject.type)
+    : null
+
+  // ---------------------------------------------------------------------------
+  // Risk prediction
+  // ---------------------------------------------------------------------------
+
+  const { prediction, loading: riskLoading } = useRisk(
+    selectedProject ? selectedProject.id : null,
+  )
+
+  // ---------------------------------------------------------------------------
+  // Fetch recommendations
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!selectedProject?.id) {
+      setRecommendations([])
+      setRecsLoading(false)
+      return
+    }
+
     let isMounted = true
+
     setRecsLoading(true)
+
     getRecommendations(selectedProject.id)
       .then((res) => {
-        if (isMounted) setRecommendations(res.data)
+        if (!isMounted) return
+
+        setRecommendations(
+          Array.isArray(res?.data)
+            ? res.data
+            : [],
+        )
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to fetch recommendations:',
+          error,
+        )
+
+        if (isMounted) {
+          setRecommendations([])
+        }
       })
       .finally(() => {
-        if (isMounted) setRecsLoading(false)
+        if (isMounted) {
+          setRecsLoading(false)
+        }
       })
+
     return () => {
       isMounted = false
     }
-  }, [selectedProject])
-  const handleGenerateRecommendations = async () => {
-  if (!selectedProject?.id) return
+  }, [selectedProject?.id])
 
-  try {
-    setGeneratingRecommendations(true)
+  // ---------------------------------------------------------------------------
+  // Fetch stage progress
+  // ---------------------------------------------------------------------------
 
-    await generateRecommendations(selectedProject.id)
+  useEffect(() => {
+    if (!selectedProject?.id) {
+      setStageProgress([])
+      setStageProgressCurrentStage(null)
+      setStageProgressLoading(false)
+      return
+    }
 
-    // Reload from database after Gemini generation
-    const refreshed = await getRecommendations(selectedProject.id)
+    let isMounted = true
 
-    setRecommendations(refreshed.data || [])
-  } catch (error) {
-    console.error('Failed to generate recommendations:', error)
-  } finally {
-    setGeneratingRecommendations(false)
-  }
-}
+    setStageProgressLoading(true)
+
+    // Clear old project's progress while loading the new project.
+    setStageProgress([])
+    setStageProgressCurrentStage(null)
+
+    getStageProgress(selectedProject.id)
+      .then((res) => {
+        if (!isMounted) return
+
+        console.log(
+          '========== DASHBOARD STAGE PROGRESS =========='
+        )
+
+        console.log(
+          'Project ID:',
+          selectedProject.id,
+        )
+
+        console.log(
+          'Raw response:',
+          res,
+        )
+
+        console.log(
+          'Response data:',
+          res?.data,
+        )
+
+        const data =
+          res?.data?.data ??
+          res?.data ??
+          res
+
+        console.log(
+          'Normalized stage progress:',
+          data,
+        )
+
+        console.log(
+          'Current stage:',
+          data?.currentStage,
+        )
+
+        console.log(
+          'Stages:',
+          data?.stages,
+        )
+
+        const stages = Array.isArray(data?.stages)
+          ? data.stages
+          : []
+
+        setStageProgress(stages)
+
+        setStageProgressCurrentStage(
+          data?.currentStage ?? null,
+        )
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to fetch stage progress:',
+          error,
+        )
+
+        if (isMounted) {
+          setStageProgress([])
+          setStageProgressCurrentStage(null)
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setStageProgressLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedProject?.id])
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <DashboardLayout activeKey="dashboard">
-      {/* KPI cards — values come from dashboard.api via useDashboard() */}
+
+      {/* =====================================================================
+          KPI CARDS
+      ====================================================================== */}
+
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        <SummaryCard icon={FolderKanban} value={summaryLoading ? '—' : summary?.myProjects} label="My Projects" />
-        <SummaryCard icon={AlertTriangle} value={summaryLoading ? '—' : summary?.highRisk} label="High Risk" accent="text-red-600" bg="bg-red-50" />
-        <SummaryCard icon={AlertCircle} value={summaryLoading ? '—' : summary?.mediumRisk} label="Medium Risk" accent="text-amber-500" bg="bg-amber-50" />
-        <SummaryCard icon={CheckCircle2} value={summaryLoading ? '—' : summary?.lowRisk} label="Low Risk" accent="text-green-600" bg="bg-green-50" />
-        <SummaryCard icon={Percent} value={summaryLoading ? '—' : formatRiskScore(summary?.avgRiskScore)} label="Avg. Risk Score" />
-        <SummaryCard icon={ListTodo} value={summaryLoading ? '—' : summary?.pendingActions} label="Pending Actions" />
+
+        <SummaryCard
+          icon={FolderKanban}
+          value={
+            summaryLoading
+              ? '—'
+              : summary?.myProjects
+          }
+          label="My Projects"
+        />
+
+        <SummaryCard
+          icon={AlertTriangle}
+          value={
+            summaryLoading
+              ? '—'
+              : summary?.highRisk
+          }
+          label="High Risk"
+          accent="text-red-600"
+          bg="bg-red-50"
+        />
+
+        <SummaryCard
+          icon={AlertCircle}
+          value={
+            summaryLoading
+              ? '—'
+              : summary?.mediumRisk
+          }
+          label="Medium Risk"
+          accent="text-amber-500"
+          bg="bg-amber-50"
+        />
+
+        <SummaryCard
+          icon={CheckCircle2}
+          value={
+            summaryLoading
+              ? '—'
+              : summary?.lowRisk
+          }
+          label="Low Risk"
+          accent="text-green-600"
+          bg="bg-green-50"
+        />
+
+        <SummaryCard
+          icon={Percent}
+          value={
+            summaryLoading
+              ? '—'
+              : formatRiskScore(
+                  summary?.avgRiskScore,
+                )
+          }
+          label="Avg. Risk Score"
+        />
+
+        <SummaryCard
+          icon={ListTodo}
+          value={
+            summaryLoading
+              ? '—'
+              : summary?.pendingActions
+          }
+          label="Pending Actions"
+        />
+
         <SummaryCard
           icon={RefreshCw}
-          value={summaryLoading ? '—' : formatDateTimeShort(summary?.lastUpdated)}
+          value={
+            summaryLoading
+              ? '—'
+              : formatDateTimeShort(
+                  summary?.lastUpdated,
+                )
+          }
           label="Last Updated"
           compactValue
         />
       </div>
 
-      {/* Main two-column layout */}
+      {/* =====================================================================
+          MAIN TWO COLUMN LAYOUT
+      ====================================================================== */}
+
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[55fr_45fr]">
-        {/* LEFT COLUMN */}
+
+        {/* ===================================================================
+            LEFT COLUMN
+        ==================================================================== */}
+
         <div className="flex min-w-0 flex-col gap-5">
-          {/* Project Map card */}
+
+          {/* Project Map */}
+
           <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+
               <div className="flex items-center gap-2.5">
+
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
                   <MapPin className="h-4 w-4" />
                 </span>
+
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800">Projects Map ({districtText})</h3>
-                  <p className="text-[11px] text-gray-400">Click a marker to inspect the project</p>
+
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    Projects Map ({districtText})
+                  </h3>
+
+                  <p className="text-[11px] text-gray-400">
+                    Click a marker to inspect the project
+                  </p>
+
                 </div>
+
               </div>
+
               <span className="hidden rounded-full bg-gray-50 px-2.5 py-1 text-[10px] font-semibold text-gray-500 sm:inline">
                 Interactive Map
               </span>
+
             </div>
-            <RiskMap onViewDetails={(marker) => setSelectedId(marker.id)} />
+
+            <RiskMap
+              onViewDetails={(marker) => {
+                setSelectedId(marker.id)
+              }}
+            />
+
           </section>
 
-          {/* My Projects table card */}
+          {/* My Projects */}
+
           <ProjectTable
             title={`My Projects (${districtText})`}
             projects={projects}
@@ -146,54 +437,141 @@ export default function ProjectManagerDashboard() {
             filters={filters}
             onFiltersChange={setFilters}
             onRetry={refetch}
-            
+            onView={(project) => {
+              setSelectedId(project.id)
+            }}
           />
+
         </div>
 
-        {/* RIGHT COLUMN — detail panel. Independently scrollable on desktop
-            so Risk Prediction / SHAP / Recommendations / Progress are always
-            reachable without losing the two-column layout. */}
+        {/* ===================================================================
+            RIGHT COLUMN
+        ==================================================================== */}
+
         <div className="flex min-w-0 flex-col gap-5 xl:sticky xl:top-[76px] xl:max-h-[calc(100vh-96px)] xl:overflow-y-auto xl:pr-1 scrollbar-thin">
+
           <section className="flex flex-col gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            {/* Selected project summary banner */}
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Selected Project</p>
+
+            {/* ===============================================================
+                SELECTED PROJECT
+            ================================================================ */}
+
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+              Selected Project
+            </p>
+
             {selectedProject ? (
+
               <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary-dark via-primary to-primary-light p-4 text-white shadow-sm">
-                {/* subtle decorative rings */}
-                <div className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-white/10" aria-hidden="true" />
-                <div className="pointer-events-none absolute -bottom-12 right-16 h-24 w-24 rounded-full bg-white/5" aria-hidden="true" />
+
+                <div
+                  className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-white/10"
+                  aria-hidden="true"
+                />
+
+                <div
+                  className="pointer-events-none absolute -bottom-12 right-16 h-24 w-24 rounded-full bg-white/5"
+                  aria-hidden="true"
+                />
+
                 <div className="relative flex flex-wrap items-start justify-between gap-3">
+
                   <div className="flex min-w-0 items-start gap-3">
+
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                      {SelectedTypeIcon ? <SelectedTypeIcon className="h-5 w-5" /> : null}
+
+                      {SelectedTypeIcon ? (
+                        <SelectedTypeIcon className="h-5 w-5" />
+                      ) : null}
+
                     </span>
+
                     <div className="min-w-0">
+
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">
-                        {selectedProject.id} · {selectedProject.district}
+                        {selectedProject.id} ·{' '}
+                        {selectedProject.district}
                       </p>
-                      <h3 className="truncate text-sm font-bold leading-snug">{selectedProject.name}</h3>
-                      <p className="mt-0.5 text-[11px] text-white/70">{selectedProject.type} · {selectedProject.stage}</p>
+
+                      <h3 className="truncate text-sm font-bold leading-snug">
+                        {selectedProject.name}
+                      </h3>
+
+                      <p className="mt-0.5 text-[11px] text-white/70">
+                        {selectedProject.type} ·{' '}
+                        {selectedProject.stage}
+                      </p>
+
                     </div>
+
                   </div>
+
                   <div className="flex flex-col items-end gap-2">
-                    <RiskBadge level={selectedProject.riskLevel} />
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/project-manager/projects/${selectedProject.id}`)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-white/25"
-                    >
-                      <ExternalLink className="h-3 w-3" /> View Full Details
-                    </button>
+
+                    <RiskBadge
+                      level={
+                        selectedProject.riskLevel
+                      }
+                    />
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+
+                      {/* Edit */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/project-manager/projects/${selectedProject.id}/edit`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-primary-dark shadow-sm transition-colors hover:bg-gray-100"
+                      >
+                        <span className="text-sm leading-none">
+                          ✎
+                        </span>
+
+                        Edit Project
+                      </button>
+
+                      {/* View Full Details */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/project-manager/projects/${selectedProject.id}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-white/25"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+
+                        View Full Details
+                      </button>
+
+                    </div>
+
                   </div>
+
                 </div>
+
               </div>
+
             ) : (
+
               <Loader label="Selecting project…" />
+
             )}
 
-            {/* Tab bar */}
+            {/* ===============================================================
+                TABS
+            ================================================================ */}
+
             <div className="scrollbar-thin flex gap-1 overflow-x-auto border-b border-gray-100">
+
               {TABS.map((tab) => (
+
                 <button
                   key={tab}
                   type="button"
@@ -206,115 +584,263 @@ export default function ProjectManagerDashboard() {
                 >
                   {tab}
                 </button>
+
               ))}
+
             </div>
 
-            {/* Tab content */}
-            {activeTab !== 'Documents' && selectedProject ? (
+            {/* ===============================================================
+                TAB CONTENT
+            ================================================================ */}
+
+            {activeTab !== 'Documents' &&
+            selectedProject ? (
+
               <>
-                {(activeTab === 'Overview' || activeTab === 'Risk Analysis') && (
+
+                {/* =========================================================
+                    OVERVIEW / RISK ANALYSIS
+                ========================================================== */}
+
+                {(activeTab === 'Overview' ||
+                  activeTab === 'Risk Analysis') && (
+
                   <>
+
                     {activeTab === 'Overview' ? (
+
                       <div className="rounded-lg border border-gray-100 p-3">
-                        <h4 className="mb-3 text-xs font-semibold text-gray-700">Project Information</h4>
-                        <ProjectInfo project={selectedProject} />
+
+                        <h4 className="mb-3 text-xs font-semibold text-gray-700">
+                          Project Information
+                        </h4>
+
+                        <ProjectInfo
+                          project={selectedProject}
+                        />
+
                       </div>
+
                     ) : null}
 
-                    {/* Risk Prediction — values from risk.api via useRisk() */}
+                    {/* Risk Prediction */}
+
                     <div className="rounded-lg border border-gray-100 p-3">
+
                       <div className="mb-2.5 flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-gray-700">Risk Prediction</h4>
+
+                        <h4 className="text-xs font-semibold text-gray-700">
+                          Risk Prediction
+                        </h4>
+
                         <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-semibold text-accent">
                           AI Model
                         </span>
+
                       </div>
-                      {riskLoading || !prediction ? (
+
+                      {riskLoading ||
+                      !prediction ? (
+
                         <Loader className="py-8" />
+
                       ) : (
+
                         <RiskGauge
-                          probability={prediction.delayProbability}
-                          riskLevel={prediction.riskLevel}
-                          riskScore={prediction.riskScore}
-                          warningMessage={prediction.warningMessage}
+                          probability={
+                            prediction.delayProbability
+                          }
+                          riskLevel={
+                            prediction.riskLevel
+                          }
+                          riskScore={
+                            prediction.riskScore
+                          }
+                          warningMessage={
+                            prediction.warningMessage
+                          }
                         />
+
                       )}
+
                     </div>
+
                   </>
+
                 )}
 
-                {/* SHAP explanation */}
-                {activeTab === 'Overview' || activeTab === 'Explanation (XAI)' ? (
+                {/* =========================================================
+                    XAI
+                ========================================================== */}
+
+                {(activeTab === 'Overview' ||
+                  activeTab === 'Explanation (XAI)') && (
+
                   <div className="rounded-lg border border-gray-100 p-3">
+
                     <h4 className="mb-2.5 text-xs font-semibold text-gray-700">
                       Key Risk Factors (SHAP Explanation)
                     </h4>
+
                     <RiskFactors
-                      factors={prediction ? prediction.shapFactors : []}
-                      summary={prediction ? prediction.summary : ''}
+                      factors={
+                        prediction
+                          ? prediction.shapFactors
+                          : []
+                      }
+                      summary={
+                        prediction
+                          ? prediction.summary
+                          : ''
+                      }
                       loading={riskLoading}
                     />
-                  </div>
-                ) : null}
 
-                {/* AI Recommendation — from recommendations.api.
-                    Narrative order: Prediction → Why (SHAP) → Action. */}
-                {activeTab === 'Overview' || activeTab === 'Recommendations' ? (
+                  </div>
+
+                )}
+
+                {/* =========================================================
+                    AI RECOMMENDATIONS
+                ========================================================== */}
+
+                {(activeTab === 'Overview' ||
+                  activeTab === 'Recommendations') && (
+
                   <div className="rounded-lg border border-gray-100 p-3">
+
                     <div className="mb-2.5 flex items-center justify-between">
+
                       <h4 className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                        <BrainCircuit className="h-3.5 w-3.5 text-accent" /> AI Recommendation
+
+                        <BrainCircuit className="h-3.5 w-3.5 text-accent" />
+
+                        AI Recommendation
+
                       </h4>
+
                       <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-semibold text-accent">
                         Auto-generated
                       </span>
+
                     </div>
-                    <Recommendations recommendations={recommendations} loading={recsLoading} />
-                    {/* Primary CTA — routes to the EXISTING project details page
-                        (no new route or behavior). */}
+
+                    {/* Recommendation list with scrollbar */}
+
+                    <div className="max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
+
+                      <Recommendations
+                        recommendations={
+                          recommendations
+                        }
+                        loading={recsLoading}
+                      />
+
+                    </div>
+
                     <button
-  type="button"
-  onClick={handleGenerateRecommendations}
-  disabled={generatingRecommendations}
-  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-60"
->
-  <BrainCircuit className="h-3.5 w-3.5" />
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          `/project-manager/projects/${selectedProject.id}`,
+                        )
+                      }
+                      className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-dark"
+                    >
+                      Take Action
 
-  {generatingRecommendations
-    ? 'Generating AI Recommendations...'
-    : 'Generate AI Recommendations'}
-</button>
+                      <ArrowRight className="h-3.5 w-3.5" />
+
+                    </button>
+
                   </div>
-                ) : null}
 
-                {/* Project Stage Progress */}
-                {activeTab === 'Overview' || activeTab === 'Progress' ? (
+                )}
+
+                {/* =========================================================
+                    PROJECT STAGE PROGRESS
+                ========================================================== */}
+
+                {(activeTab === 'Overview' ||
+                  activeTab === 'Progress') && (
+
                   <div className="rounded-lg border border-gray-100 p-3">
-                    <h4 className="mb-2.5 text-xs font-semibold text-gray-700">Project Stage Progress</h4>
-                    <ProjectProgress currentStage={selectedProject.stage} />
-                  </div>
-                ) : null}
 
-                {/* Recent Alerts */}
-                {activeTab === 'Overview' ? (
-                  <div className="rounded-lg border border-gray-100 p-3">
-                    <h4 className="mb-1.5 text-xs font-semibold text-gray-700">Recent Alerts</h4>
-                    <RecentAlerts projectId={selectedProject.id} maxItems={4} />
+                    <h4 className="mb-2.5 text-xs font-semibold text-gray-700">
+                      Project Stage Progress
+                    </h4>
+
+                    <ProjectProgress
+                      currentStage={
+                        stageProgressCurrentStage ||
+                        selectedProject.stage
+                      }
+                      stages={stageProgress}
+                      loading={
+                        stageProgressLoading
+                      }
+                    />
+
                   </div>
-                ) : null}
+
+                )}
+
+                {/* =========================================================
+                    RECENT ALERTS
+                ========================================================== */}
+
+                {activeTab === 'Overview' && (
+
+                  <div className="rounded-lg border border-gray-100 p-3">
+
+                    <h4 className="mb-1.5 text-xs font-semibold text-gray-700">
+                      Recent Alerts
+                    </h4>
+
+                    <RecentAlerts
+                      projectId={
+                        selectedProject.id
+                      }
+                      maxItems={4}
+                    />
+
+                  </div>
+
+                )}
+
               </>
+
             ) : null}
 
-            {activeTab === 'Documents' ? (
+            {/* ===============================================================
+                DOCUMENTS
+            ================================================================ */}
+
+            {activeTab === 'Documents' && (
+
               <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-gray-200 py-10 text-center">
+
                 <FileText className="h-6 w-6 text-gray-300" />
-                <p className="text-xs font-medium text-gray-500">No documents uploaded yet</p>
-                <p className="text-[10px] text-gray-400">Notifications, awards and R&R documents will appear here.</p>
+
+                <p className="text-xs font-medium text-gray-500">
+                  No documents uploaded yet
+                </p>
+
+                <p className="text-[10px] text-gray-400">
+                  Notifications, awards and R&R documents
+                  will appear here.
+                </p>
+
               </div>
-            ) : null}
+
+            )}
+
           </section>
+
         </div>
+
       </div>
+
     </DashboardLayout>
   )
 }

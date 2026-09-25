@@ -154,15 +154,51 @@ function mapProject(p) {
       ? Number(p.risk_score)
       : 0
 
+  // Public project identifier used by API routes.
+  // Example: SEED-P1
+  const publicProjectId =
+    p.project_id ??
+    p.projectId ??
+    p.id
+
   return {
+    // --------------------------------------------------
+    // IDs
+    // --------------------------------------------------
+
+    // Internal database ID
+    dbId: p.id,
+
+    // Public project ID
+    // Example: SEED-P1
+    id: publicProjectId,
+    project_id: publicProjectId,
+    projectId: publicProjectId,
+
+    // --------------------------------------------------
     // Basic project information
-    id: p.project_id,
-    name: p.location || p.project_id,
+    // --------------------------------------------------
+
+    name:
+      p.name ??
+      p.project_name ??
+      p.location ??
+      publicProjectId,
+
     type: p.project_type,
+
     district: p.district,
+
+    state: p.state,
+
+    location: p.location,
+
     stage: p.current_stage || '—',
 
-    // Risk information from backend
+    // --------------------------------------------------
+    // Risk information
+    // --------------------------------------------------
+
     riskScore,
 
     riskLevel:
@@ -172,12 +208,12 @@ function mapProject(p) {
           ? RISK_LEVELS.MEDIUM
           : RISK_LEVELS.LOW,
 
-    // Until the projects endpoint provides a separate
-    // delay_probability field, use risk score as the displayed
-    // percentage.
     delayProbability: riskScore / 100,
 
+    // --------------------------------------------------
     // Project information
+    // --------------------------------------------------
+
     totalLandArea:
       p.land_area_hectares != null
         ? `${p.land_area_hectares} ha`
@@ -189,12 +225,18 @@ function mapProject(p) {
     startDate: p.created_at,
 
     lat: p.latitude,
+
     lng: p.longitude,
 
     status: p.delay_status || 'ON_TIME',
 
-    // ML/input fields
-    land_area_hectares: p.land_area_hectares,
+    // --------------------------------------------------
+    // ML / project input fields
+    // --------------------------------------------------
+
+    land_area_hectares:
+      p.land_area_hectares,
+
     number_of_affected_families:
       p.number_of_affected_families,
 
@@ -210,9 +252,14 @@ function mapProject(p) {
     historical_performance_score:
       p.historical_performance_score,
 
-    altitude_m: p.altitude_m,
-    latitude: p.latitude,
-    longitude: p.longitude,
+    altitude_m:
+      p.altitude_m,
+
+    latitude:
+      p.latitude,
+
+    longitude:
+      p.longitude,
 
     compensation_status:
       p.compensation_status,
@@ -323,8 +370,86 @@ export async function getStageProgress(projectId) {
     `/projects/${projectId}/stage-progress`,
   )
 
+  console.log(
+    '========== STAGE PROGRESS API =========='
+  )
+
+  console.log('fetchClient response:', res)
+  console.log('res.data:', res?.data)
+  console.log('res.data.data:', res?.data?.data)
+  console.log('res.data.stages:', res?.data?.stages)
+
+  console.log(
+    '========================================'
+  )
+
+  /*
+   * fetchClient may already unwrap the backend's
+   * { success, data } response.
+   *
+   * Therefore support both:
+   *
+   * res.data = {
+   *   currentStage,
+   *   stages
+   * }
+   *
+   * OR
+   *
+   * res.data = {
+   *   data: {
+   *     currentStage,
+   *     stages
+   *   }
+   * }
+   */
+
+  const payload =
+    res?.data?.stages
+      ? res.data
+      : res?.data?.data?.stages
+        ? res.data.data
+        : null
+
+  if (!payload) {
+    console.error(
+      'Invalid stage progress response:',
+      res
+    )
+
+    return {
+      data: {
+        currentStage: null,
+        stages: [],
+      },
+    }
+  }
+
+  const stages = Array.isArray(payload.stages)
+    ? payload.stages.map((item) => ({
+        stage: item.stage,
+
+        progressPct: Number(
+          item.progressPct ??
+          item.progress_pct ??
+          0
+        ),
+      }))
+    : []
+
+  const result = {
+    currentStage: payload.currentStage ?? null,
+    stages,
+    updatedAt: payload.updatedAt ?? null,
+  }
+
+  console.log(
+    'NORMALIZED STAGE PROGRESS:',
+    result
+  )
+
   return {
-    data: res.data,
+    data: result,
   }
 }
 

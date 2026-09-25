@@ -37,3 +37,16 @@ export const usersApi = {
     return res.data
   }
 }
+/**
+ * Get active Project Managers.
+ */
+export async function getProjectManagers() {
+  const res = await fetchClient(
+    '/users?role=PROJECT_MANAGER&is_active=true&limit=100',
+  )
+
+  return {
+    data: res.data ?? [],
+    pagination: res.pagination ?? null,
+  }
+}
